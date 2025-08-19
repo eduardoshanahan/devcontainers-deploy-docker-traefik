@@ -1,0 +1,32 @@
+{
+    "dev.containers.defaultExtensions": [
+        "redhat.ansible",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "github.vscode-pull-request-github",
+        "ms-vscode.makefile-tools",
+        "codezombiech.gitignore",
+        "mhutchie.git-graph",
+        "donjayamanne.githistory",
+        "visualstudioexptteam.vscodeintellicode",
+        "streetsidesoftware.code-spell-checker",
+        "editorconfig.editorconfig",
+        "gruntfuggly.todo-tree",
+        "file-icons.file-icons",
+        "foxundermoon.shell-format",
+        "esbenp.prettier-vscode",
+        "executablebookproject.mdformat",
+        "yzhang.markdown-all-in-one",
+        "shd101wyy.markdown-preview-enhanced",
+        "fcrespo82.markdown-table-formatter",
+        "mushan.vscode-paste-image",
+        "bierner.markdown-emoji",
+        "bierner.markdown-footnotes",
+        "AlanWalk.markdown-toc",
+        "ms-vsliveshare.vsliveshare",
+        "ms-python.black-formatter"
+    ],
+    "dev.containers.dockerPath": "docker",
+    "dev.containers.dockerComposePath": "docker-compose"
+}

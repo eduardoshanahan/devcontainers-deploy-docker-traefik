@@ -1,0 +1,12 @@
+# Ignore Git history
+.git
+.gitignore
+
+# Ignore VS Code settings
+.vscode
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+tmp/

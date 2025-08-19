@@ -1,0 +1,77 @@
+# Get editor completions based on the config schema
+"$schema" = 'https://starship.rs/config-schema.json'
+
+# Use custom format
+format = """
+[╭─](bold blue)\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$nodejs\
+$python\
+$docker_context\
+[╰─](bold blue)\
+$character"""
+
+# Disable the package module, hiding it from the prompt
+[package]
+disabled = true
+
+# Use custom prompt character
+[character]
+success_symbol = "[➜](bold green) "
+error_symbol = "[✗](bold red) "
+
+# Username format
+[username]
+style_user = "bold blue"
+style_root = "bold black"
+show_always = true
+disabled = false
+
+# Hostname format
+[hostname]
+ssh_only = true
+prefix = " "
+style = "bold blue"
+disabled = false
+
+# Directory format
+[directory]
+style = "bold cyan"
+read_only = " "
+truncation_length = 3
+
+# Git branch format
+[git_branch]
+symbol = " "
+style = "bold purple"
+
+# Git status format
+[git_status]
+style = "bold red"
+format = '([\[$all_status$ahead_behind\] ]($style) )'
+disabled = false
+
+# Node.js format
+[nodejs]
+symbol = " "
+style = "bold green"
+format = "[$symbol($version )]($style)"
+disabled = true
+
+# Python format
+[python]
+symbol = " "
+style = "bold yellow"
+format = "[$symbol($version )]($style)"
+disabled = true
+
+# Docker context format
+[docker_context]
+symbol = " "
+style = "bold blue"
+format = "[$symbol$context]($style) "
+disabled = true 
