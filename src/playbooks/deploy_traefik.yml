@@ -1,0 +1,55 @@
+---
+# Independent Traefik Reverse Proxy Deployment
+# Based on devcontainers-deploy-docker standards but completely standalone
+
+- name: Deploy Traefik Reverse Proxy
+  hosts: vps
+  gather_facts: true
+  become: true # This will use initial_deployment_user for sudo
+
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+    - "../inventory/group_vars/{{ traefik_deployment_environment }}/main.yml"
+
+  pre_tasks:
+    - name: Verify required variables are defined
+      ansible.builtin.assert:
+        that:
+          - traefik_deployment_environment is defined
+          - traefik_container_name is defined
+          - traefik_dashboard_port is defined
+          - traefik_web_port is defined
+          - traefik_websecure_port is defined
+        fail_msg: "Required variables are not defined. Check inventory configuration."
+        success_msg: "All required variables are properly defined."
+
+    - name: Verify Docker is running
+      ansible.builtin.command: docker info
+      register: docker_info
+      changed_when: false
+      failed_when: docker_info.rc != 0
+
+    - name: Check existing Traefik deployment
+      community.docker.docker_container_info:
+        name: "{{ traefik_container_name }}"
+      register: existing_traefik
+      failed_when: false
+
+  roles:
+    - role: deploy_traefik
+
+  post_tasks:
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg: |
+          Traefik deployment completed successfully!
+
+          {% if traefik_dashboard_enabled %}
+          Dashboard: http://{{ ansible_host }}:{{ traefik_dashboard_port }}
+          {% else %}
+          Dashboard: Disabled (production security)
+          {% endif %}
+          Proxy ports: {{ traefik_web_port }}, {{ traefik_websecure_port }}
+
+          Container name: {{ traefik_container_name }}
+          Environment: {{ traefik_deployment_environment }}

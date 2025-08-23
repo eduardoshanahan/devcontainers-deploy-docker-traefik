@@ -16,4 +16,5 @@ This directory contains research notes, analysis, and development planning for t
 - [Project Analysis](./project-analysis/project-overview.md)
 - [Current State Assessment](./project-analysis/current-state.md)
 - [Implementation Plan](./implementation/implementation-plan.md)
+- [Security Enhancements](./implementation/security-enhancements.md)
 - [Requirements](./requirements/project-requirements.md)

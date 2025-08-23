@@ -4,7 +4,7 @@
 
 ### **NEVER Use Shell Commands for Package Management**
 
-**❌ WRONG - Don't do this:**
+**FAIL - Don't do this:**
 
 ```yaml
 - name: Update apt cache
@@ -20,7 +20,7 @@
   become: true
 ```
 
-**✅ CORRECT - Do this instead:**
+**PASS - Do this instead:**
 
 ```yaml
 - name: Update apt cache
@@ -89,7 +89,7 @@
 
 ### **When Shell Commands Are Acceptable**
 
-**✅ Use shell commands ONLY for:**
+**PASS - Use shell commands ONLY for:**
 
 - Complex one-liners that don't have Ansible modules
 - Commands that need specific shell features

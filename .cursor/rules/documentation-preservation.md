@@ -165,4 +165,4 @@ read_file target_file="path/to/file.md" should_read_entire_file=true
 
 **Remember: Documentation is cumulative knowledge.** Each update should **preserve existing value** while **adding new insights**. Never assume that new content automatically replaces old content - often the best result comes from **preserving and enhancing** what already exists.
 
-**Key Rule: Read First, Preserve Always, Enhance Carefully**
+### **Key Rule: Read First, Preserve Always, Enhance Carefully**

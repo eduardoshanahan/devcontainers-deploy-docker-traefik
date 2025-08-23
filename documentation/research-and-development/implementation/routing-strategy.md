@@ -8,11 +8,12 @@ This document defines the routing strategy and URL structure for the Traefik rev
 
 ### **Domain Pattern**
 
-```
+```text
 Main Domain: edu
 ```
 
 ### **URL Structure Examples**
+
 - **Main Site**: `www.eduardoshanahan.com`
 - **Blog**: `blog.eduardoshanahan.com`
 - **Articles**: `articles.eduardoshanahan.com`
@@ -109,7 +110,8 @@ services:
 ## DNS Configuration
 
 ### **Required DNS Records**
-```
+
+```text
 Type    Name                    Value
 A       www                     <VPS_IP>
 A       blog                    <VPS_IP>
@@ -121,6 +123,7 @@ CNAME   @                       www.eduardoshanahan.com
 ```
 
 ### **DNS Management**
+
 - **Provider**: Any DNS provider (Cloudflare, Route53, etc.)
 - **TTL**: 300 seconds (5 minutes) for quick updates
 - **Health Checks**: Optional DNS health checks
@@ -128,12 +131,14 @@ CNAME   @                       www.eduardoshanahan.com
 ## SSL Certificate Strategy
 
 ### **Certificate Coverage**
+
 - **Main Domain**: `eduardoshanahan.com`
 - **Subdomains**: `www`, `blog`, `articles`, `api`, `admin`, `traefik`
 - **Certificate Type**: Individual certificates per subdomain
 - **Renewal**: Automatic via Let's Encrypt
 
 ### **Certificate Configuration**
+
 ```yaml
 # Each subdomain gets its own certificate
 certificatesResolvers:
@@ -148,6 +153,7 @@ certificatesResolvers:
 ## Middleware Configuration
 
 ### **1. Security Headers Middleware**
+
 ```yaml
 # Security headers for all applications
 http:
@@ -165,6 +171,7 @@ http:
 ```
 
 ### **2. API Security Middleware**
+
 ```yaml
 # API-specific security
 api-security:
@@ -181,6 +188,7 @@ api-security:
 ```
 
 ### **3. Admin Authentication Middleware**
+
 ```yaml
 # Admin authentication
 admin-auth:
@@ -193,6 +201,7 @@ admin-auth:
 ## Application Integration Examples
 
 ### **1. WordPress Blog**
+
 ```yaml
 services:
   wordpress:
@@ -214,6 +223,7 @@ services:
 ```
 
 ### **2. Static Site Generator**
+
 ```yaml
 services:
   hugo:
@@ -232,6 +242,7 @@ services:
 ```
 
 ### **3. API Service**
+
 ```yaml
 services:
   api:
@@ -253,6 +264,7 @@ services:
 ## Ansible Implementation
 
 ### **1. Domain Variables**
+
 ```yaml
 # defaults/main.yml
 traefik_main_domain: "eduardoshanahan.com"
@@ -267,6 +279,7 @@ traefik_letsencrypt_email: "your-email@domain.com"
 ```
 
 ### **2. DNS Configuration Task**
+
 ```yaml
 # tasks/dns.yml
 - name: Verify DNS records
@@ -279,6 +292,7 @@ traefik_letsencrypt_email: "your-email@domain.com"
 ```
 
 ### **3. Application Template**
+
 ```yaml
 # templates/application-compose.yml.j2
 version: '3.8'
@@ -309,6 +323,7 @@ networks:
 ## Monitoring and Health Checks
 
 ### **1. Domain Health Monitoring**
+
 ```yaml
 # tasks/monitoring.yml
 - name: Check domain accessibility
@@ -321,6 +336,7 @@ networks:
 ```
 
 ### **2. SSL Certificate Monitoring**
+
 ```yaml
 - name: Check SSL certificate expiration
   ansible.builtin.command: |

@@ -7,15 +7,18 @@ This document defines the implementation strategy for deploying Traefik with aut
 ## Core Architecture
 
 ### **Network Architecture**
-```
+
+```text
 Internet → VPS (Port 80/443) → Traefik → Application Containers
 ```
 
 ### **Docker Networks**
+
 - **traefik-public**: External-facing network for Traefik and applications
 - **traefik-internal**: Internal network for backend services (if needed)
 
 ### **Service Discovery Pattern**
+
 Applications register with Traefik using standardized Docker labels.
 
 ## Docker Labels Pattern
@@ -47,30 +50,35 @@ labels:
 ### **Label Categories**
 
 #### **1. Basic Discovery Labels**
+
 ```yaml
 - "traefik.enable=true"                                    # Enable Traefik
 - "traefik.docker.network=traefik-public"                 # Network
 ```
 
 #### **2. Routing Labels**
+
 ```yaml
 - "traefik.http.routers.app1.rule=Host(`app1.domain.com`)" # Host rule
 - "traefik.http.routers.app1.entrypoints=web,websecure"    # Entry points
 ```
 
 #### **3. Service Labels**
+
 ```yaml
 - "traefik.http.services.app1.loadbalancer.server.port=8080" # Port
 - "traefik.http.services.app1.loadbalancer.sticky.cookie=true" # Sticky sessions
 ```
 
 #### **4. SSL/TLS Labels**
+
 ```yaml
 - "traefik.http.routers.app1.tls=true"                    # Enable TLS
 - "traefik.http.routers.app1.tls.certresolver=letsencrypt" # Certificate resolver
 ```
 
 #### **5. Middleware Labels**
+
 ```yaml
 - "traefik.http.routers.app1.middlewares=security-headers" # Security headers
 - "traefik.http.routers.app1.middlewares=rate-limit"       # Rate limiting
@@ -81,6 +89,7 @@ labels:
 ### **1. Traefik Configuration**
 
 #### **Docker Compose Configuration**
+
 ```yaml
 version: '3.8'
 
@@ -126,6 +135,7 @@ volumes:
 ```
 
 #### **Traefik Configuration File**
+
 ```yaml
 # traefik.yml
 api:
@@ -166,11 +176,13 @@ accessLog: {}
 ### **2. Network Setup**
 
 #### **Create Traefik Network**
+
 ```bash
 docker network create traefik-public
 ```
 
 #### **Network Configuration**
+
 ```yaml
 # networks.yml
 networks:
@@ -185,6 +197,7 @@ networks:
 ### **3. Application Template**
 
 #### **Example Application Docker Compose**
+
 ```yaml
 version: '3.8'
 
@@ -212,7 +225,8 @@ networks:
 ## Ansible Implementation Strategy
 
 ### **1. Traefik Role Structure**
-```
+
+```text
 src/roles/traefik/
 ├── defaults/
 │   └── main.yml          # Default variables
@@ -232,6 +246,7 @@ src/roles/traefik/
 ```
 
 ### **2. Key Variables**
+
 ```yaml
 # defaults/main.yml
 traefik_version: "v2.10"
@@ -248,21 +263,25 @@ traefik_ssl_redirect: true
 ### **3. Implementation Phases**
 
 #### **Phase 1: Infrastructure Setup**
+
 - Create Docker networks
 - Set up volume directories
 - Configure firewall rules
 
 #### **Phase 2: Traefik Deployment**
+
 - Deploy Traefik container
 - Configure SSL/TLS
 - Set up dashboard access
 
 #### **Phase 3: Application Integration**
+
 - Create application templates
 - Test service discovery
 - Validate SSL certificates
 
 #### **Phase 4: Monitoring and Security**
+
 - Configure logging
 - Set up monitoring
 - Implement security headers
@@ -270,17 +289,20 @@ traefik_ssl_redirect: true
 ## Security Considerations
 
 ### **1. Network Security**
+
 - Applications isolated in traefik-public network
 - Internal services on separate networks if needed
 - Firewall rules for port 80/443 only
 
 ### **2. SSL/TLS Security**
+
 - Automatic Let's Encrypt certificates
 - HTTP to HTTPS redirects
 - HSTS headers
 - Secure cipher suites
 
 ### **3. Access Control**
+
 - Traefik dashboard with authentication
 - Rate limiting middleware
 - Security headers middleware
@@ -288,16 +310,19 @@ traefik_ssl_redirect: true
 ## Testing Strategy
 
 ### **1. Unit Testing**
+
 - Ansible role testing
 - Configuration validation
 - Network connectivity tests
 
 ### **2. Integration Testing**
+
 - Service discovery testing
 - SSL certificate validation
 - Application routing tests
 
 ### **3. End-to-End Testing**
+
 - Complete deployment testing
 - Application integration testing
 - Performance testing
@@ -305,16 +330,19 @@ traefik_ssl_redirect: true
 ## Documentation Requirements
 
 ### **1. Application Integration Guide**
+
 - Docker labels reference
 - Example configurations
 - Troubleshooting guide
 
 ### **2. Deployment Guide**
+
 - Step-by-step deployment
 - Configuration options
 - Maintenance procedures
 
 ### **3. API Documentation**
+
 - Traefik API endpoints
 - Dashboard access
 - Monitoring endpoints

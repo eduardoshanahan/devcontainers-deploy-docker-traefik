@@ -1,0 +1,138 @@
+---
+# =============================================================================
+# GLOBAL VARIABLES - Single source of truth
+# =============================================================================
+
+# Server Configuration
+vps_server_ip: "{{ lookup('env', 'VPS_SERVER_IP') }}"
+
+# Initial Deployment User (has root/sudo access)
+initial_deployment_user: "{{ lookup('env', 'INITIAL_DEPLOYMENT_USER') }}"
+initial_deployment_ssh_key: "{{ lookup('env', 'INITIAL_DEPLOYMENT_SSH_KEY') }}"
+
+# Containers Deployment User (has Docker access)
+containers_deployment_user: "{{ lookup('env', 'CONTAINERS_DEPLOYMENT_USER') }}"
+containers_deployment_ssh_key: "{{ lookup('env', 'CONTAINERS_DEPLOYMENT_SSH_KEY') }}"
+
+# Current deployment user (will be set based on task type)
+deployment_user: "{{ containers_deployment_user }}"
+deployment_ssh_key: "{{ containers_deployment_ssh_key }}"
+
+# Environment Detection
+deployment_environment: "{{ lookup('env', 'TRAEFIK_ENVIRONMENT') | default('development') }}"
+traefik_deployment_environment: "{{ deployment_environment }}"
+
+# Docker Network Configuration (from existing project)
+docker_network_name: "prod-web-network"
+docker_network_subnet: "172.20.0.0/16"
+traefik_network_name: "{{ docker_network_name }}"
+traefik_network_subnet: "{{ docker_network_subnet }}"
+
+# Traefik Base Configuration
+traefik_version: "{{ traefik_version_override }}"
+traefik_image: "traefik:{{ traefik_version }}"
+traefik_container_name: "traefik-{{ deployment_environment }}"
+traefik_restart_policy: "unless-stopped"
+traefik_docker_restart_policy: "{{ traefik_restart_policy }}"
+
+# Port Configuration
+traefik_web_port: 80
+traefik_websecure_port: 443
+traefik_dashboard_port: 8080
+
+# Container Port Mappings
+traefik_container_port: "{{ traefik_web_port }}"
+traefik_container_web_port: 80
+traefik_container_dashboard_port: 8080
+
+# User Configuration
+traefik_user: "{{ deployment_user }}"
+traefik_group: "{{ deployment_user }}"
+traefik_user_groups: ["docker"]
+traefik_user_shell: "/bin/bash"
+traefik_user_create_home: true
+
+# Paths
+traefik_base_dir: "/opt/traefik-{{ deployment_environment }}"
+traefik_config_dir: "{{ traefik_base_dir }}/config"
+traefik_dynamic_dir: "{{ traefik_base_dir }}/dynamic"
+traefik_certs_dir: "{{ traefik_base_dir }}/certs"
+traefik_logs_dir: "{{ traefik_base_dir }}/logs"
+
+# Container Paths
+traefik_container_config_path: "/etc/traefik/traefik.yml"
+traefik_container_dynamic_path: "/etc/traefik/dynamic"
+traefik_container_certs_path: "/etc/traefik/certs"
+traefik_container_logs_path: "/var/log/traefik"
+
+# File Configuration
+traefik_config_file: "{{ traefik_config_dir }}/traefik.yml"
+traefik_dynamic_config_dir: "{{ traefik_dynamic_dir }}"
+traefik_dynamic_config_path: "{{ traefik_dynamic_dir }}"
+
+# Docker Socket
+traefik_docker_socket: "/var/run/docker.sock"
+
+# Logging Configuration
+traefik_log_path: "{{ traefik_logs_dir }}"
+traefik_log_level: "INFO"
+traefik_log_rotation_days: 7
+traefik_log_rotation_mode: "0644"
+
+# Logrotate Configuration
+traefik_logrotate_config_path: "/etc/logrotate.d/traefik"
+traefik_logrotate_owner: "root"
+traefik_logrotate_group: "root"
+traefik_logrotate_mode: "0644"
+
+# Directory and File Permissions
+traefik_dir_mode: "0755"
+traefik_sensitive_dir_mode: "0750"
+traefik_config_file_mode: "0640"
+
+# Security Configuration
+traefik_admin_password: "{{ lookup('env', 'TRAEFIK_ADMIN_PASSWORD') }}"
+traefik_hsts_seconds: 31536000
+traefik_rate_limit_burst: 100
+traefik_rate_limit_average: 50
+traefik_tls_min_version: "VersionTLS12"
+traefik_tls_cipher_suites:
+  - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+  - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
+
+# Monitoring Configuration
+traefik_prometheus_buckets:
+  - 0.1
+  - 0.3
+  - 1.2
+  - 5.0
+
+# Feature Flags (with sensible defaults)
+traefik_backup_enabled: "{{ traefik_backup_enabled }}"
+traefik_monitoring_enabled: "{{ traefik_monitoring_enabled }}"
+traefik_dashboard_enabled: "{{ traefik_dashboard_enabled }}"
+traefik_rate_limiting_enabled: "{{ traefik_rate_limiting_enabled }}"
+
+# Conditional Port Configuration
+traefik_base_ports:
+  - "{{ traefik_container_port }}:{{ traefik_container_web_port }}"
+  - "{{ traefik_websecure_port }}:{{ traefik_websecure_port }}"
+
+traefik_dashboard_ports:
+  - "{{ traefik_dashboard_port }}:{{ traefik_container_dashboard_port }}"
+
+# Dynamic port configuration based on dashboard setting
+traefik_container_ports: "{{ traefik_base_ports + (traefik_dashboard_ports if traefik_dashboard_enabled else []) }}"
+
+# Firewall Configuration
+firewall_allowed_ports:
+  - 22    # SSH
+  - 80    # HTTP
+  - 443   # HTTPS
+  - 8080  # Dashboard (when enabled)
+
+# Let's Encrypt Configuration
+traefik_acme_email: "{{ lookup('env', 'TRAEFIK_ACME_EMAIL') | default('admin@localhost') }}"
+traefik_acme_staging: "{{ lookup('env', 'TRAEFIK_ACME_STAGING') | default('false') | bool }}"
+traefik_acme_storage: "/etc/traefik/certs/acme.json"

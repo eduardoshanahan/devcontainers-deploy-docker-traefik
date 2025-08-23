@@ -1,0 +1,72 @@
+---
+# Deploy Traefik using Docker
+# Independent deployment that doesn't interfere with existing containers
+
+- name: Verify required Docker variables are defined
+  ansible.builtin.assert:
+    that:
+      - traefik_container_name is defined
+      - traefik_image is defined
+      - traefik_docker_restart_policy is defined
+      - traefik_network_name is defined
+      - traefik_container_port is defined
+      - traefik_container_web_port is defined
+      - traefik_dashboard_port is defined
+      - traefik_container_dashboard_port is defined
+      - traefik_config_file is defined
+      - traefik_container_config_path is defined
+      - traefik_dynamic_config_dir is defined
+      - traefik_container_dynamic_path is defined
+      - traefik_certs_dir is defined
+      - traefik_container_certs_path is defined
+      - traefik_logs_dir is defined
+      - traefik_container_logs_path is defined
+      - traefik_docker_socket is defined
+      - traefik_deployment_environment is defined
+    fail_msg: "Required Docker variables are not defined. Check inventory configuration."
+    success_msg: "All required Docker variables are properly defined."
+
+- name: Stop existing Traefik container if running
+  community.docker.docker_container:
+    name: "{{ traefik_container_name }}"
+    state: stopped
+  register: stop_result
+  failed_when: false
+
+- name: Remove existing Traefik container if exists
+  community.docker.docker_container:
+    name: "{{ traefik_container_name }}"
+    state: absent
+  when: stop_result.changed is defined and stop_result.changed
+  register: remove_result
+
+- name: Pull Traefik Docker image
+  community.docker.docker_image:
+    name: "{{ traefik_image }}"
+    source: pull
+    force_source: true
+
+- name: Deploy Traefik container
+  community.docker.docker_container:
+    name: "{{ traefik_container_name }}"
+    image: "{{ traefik_image }}"
+    state: started
+    restart_policy: "{{ traefik_docker_restart_policy }}"
+    networks:
+      - name: "{{ traefik_network_name }}"
+    ports: "{{ traefik_base_ports + (traefik_dashboard_ports if traefik_dashboard_enabled else []) }}"
+    volumes:
+      - "{{ traefik_config_file }}:{{ traefik_container_config_path }}:ro"
+      - "{{ traefik_dynamic_config_dir }}:{{ traefik_container_dynamic_path }}:ro"
+      - "{{ traefik_certs_dir }}:{{ traefik_container_certs_path }}:ro"
+      - "{{ traefik_logs_dir }}:{{ traefik_container_logs_path }}"
+      - "{{ traefik_docker_socket }}:{{ traefik_docker_socket }}:ro"
+    labels:
+      description: "Traefik reverse proxy (independent deployment)"
+      environment: "{{ traefik_deployment_environment }}"
+      managed_by: "ansible"
+      project: "traefik-standalone"
+
+- name: Verify container deployment
+  ansible.builtin.debug:
+    msg: "Traefik container deployed successfully"

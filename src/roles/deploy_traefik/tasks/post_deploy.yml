@@ -1,0 +1,50 @@
+---
+# Post-deployment setup for independent Traefik deployment
+# Non-intrusive setup that works alongside existing services
+
+- name: Wait for Traefik to start (dashboard port)
+  ansible.builtin.wait_for:
+    port: "{{ traefik_dashboard_port }}"
+    host: "127.0.0.1"
+    delay: 10
+    timeout: 60
+  when: traefik_dashboard_enabled | bool
+
+- name: Wait for Traefik to start (HTTP port)
+  ansible.builtin.wait_for:
+    port: "{{ traefik_web_port }}"
+    host: "127.0.0.1"
+    delay: 10
+    timeout: 60
+  when: not traefik_dashboard_enabled | bool
+
+- name: Verify Traefik container is running
+  community.docker.docker_container_info:
+    name: "{{ traefik_container_name }}"
+  register: traefik_container_info
+
+- name: Verify Traefik container status
+  ansible.builtin.assert:
+    that:
+      - traefik_container_info.exists
+      - traefik_container_info.container.State.Running
+    fail_msg: "Traefik container is not running properly"
+    success_msg: "Traefik container is running successfully"
+
+- name: Check for existing containers on the network
+  community.docker.docker_network_info:
+    name: "{{ traefik_network_name }}"
+  register: network_info
+  failed_when: false
+
+- name: Display network container information
+  ansible.builtin.debug:
+    msg: |
+      Containers on Traefik network:
+      {% if network_info.containers is defined and network_info.containers %}
+        {% for container_name, container_info in network_info.containers.items() %}
+        - {{ container_name }}
+        {% endfor %}
+      {% else %}
+        - No other containers found (this is normal for a new deployment)
+      {% endif %}

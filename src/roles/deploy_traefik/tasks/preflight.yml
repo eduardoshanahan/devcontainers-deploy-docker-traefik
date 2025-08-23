@@ -1,0 +1,52 @@
+---
+# Pre-flight checks for independent Traefik deployment
+# Based on devcontainers-deploy-docker security principles
+
+- name: Verify deployment environment
+  ansible.builtin.assert:
+    that:
+      - traefik_deployment_environment is defined
+      - traefik_deployment_environment in ['development', 'staging', 'production']
+    fail_msg: "traefik_deployment_environment must be defined and valid"
+    success_msg: "Traefik deployment environment verified: {{ traefik_deployment_environment }}"
+
+- name: Verify Docker is running
+  ansible.builtin.command: docker info
+  register: docker_info
+  changed_when: false
+  failed_when: docker_info.rc != 0
+
+- name: Check for potential network conflicts
+  community.docker.docker_network_info:
+    name: "{{ traefik_network_name }}"
+  register: existing_network
+  failed_when: false
+
+- name: Verify network compatibility
+  ansible.builtin.assert:
+    that:
+      - not existing_network.exists or
+        (existing_network.network.IPAM.Config[0].Subnet == traefik_network_subnet)
+    fail_msg: "Network '{{ traefik_network_name }}' exists but has different subnet. Please remove it or use a different name."
+    success_msg: "Network '{{ traefik_network_name }}' is compatible or doesn't exist. Safe to proceed."
+
+- name: Validate firewall configuration for dashboard access
+  ansible.builtin.assert:
+    that:
+      - not traefik_dashboard_enabled | bool or traefik_dashboard_port in firewall_allowed_ports
+    fail_msg: |
+      Dashboard is enabled (port {{ traefik_dashboard_port }}) but firewall does not allow it.
+      Either disable dashboard or add port {{ traefik_dashboard_port }} to firewall.
+    success_msg: "Firewall configuration validated for dashboard access"
+  when: traefik_dashboard_enabled | bool
+
+- name: Validate Let's Encrypt configuration
+  ansible.builtin.assert:
+    that:
+      - traefik_acme_email is defined and traefik_acme_email != 'admin@localhost'
+      - traefik_acme_staging is defined
+      - traefik_acme_storage is defined
+    fail_msg: |
+      Let's Encrypt configuration is incomplete or invalid.
+      Please set TRAEFIK_ACME_EMAIL to a valid email address.
+    success_msg: "Let's Encrypt configuration validated"

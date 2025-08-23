@@ -7,12 +7,14 @@ This document defines the SSL/TLS configuration strategy using Let's Encrypt for
 ## SSL/TLS Architecture
 
 ### **Certificate Management**
+
 - **Provider**: Let's Encrypt
 - **Challenge Method**: HTTP-01 challenge
 - **Storage**: Docker volumes for persistence
 - **Renewal**: Automatic (every 60 days)
 
 ### **Domain Strategy**
+
 - **Primary Domains**: Each application gets its own domain
 - **Subdomains**: Applications can have multiple subdomains
 - **Wildcard Support**: Not required (individual certificates per domain)
@@ -176,18 +178,21 @@ services:
 ## Certificate Management
 
 ### **Automatic Renewal**
+
 - **Frequency**: Every 60 days (Let's Encrypt standard)
 - **Method**: HTTP-01 challenge
 - **Storage**: Persistent Docker volume
 - **Backup**: Certificate storage volume
 
 ### **Certificate Storage**
+
 ```bash
 # Certificate storage location
 /var/lib/docker/volumes/traefik_certs/_data/acme.json
 ```
 
 ### **Certificate Monitoring**
+
 ```yaml
 # Health check for certificate renewal
 - name: Check certificate renewal
@@ -199,11 +204,13 @@ services:
 ## Security Considerations
 
 ### **1. Certificate Security**
+
 - **Storage**: Encrypted volume for certificate storage
 - **Access**: Restricted access to certificate files
 - **Backup**: Regular backup of certificate storage
 
 ### **2. HTTP to HTTPS Redirect**
+
 ```yaml
 # Automatic HTTP to HTTPS redirect
 entryPoints:
@@ -218,6 +225,7 @@ entryPoints:
 ```
 
 ### **3. Security Headers**
+
 ```yaml
 # Security headers middleware
 http:
@@ -237,6 +245,7 @@ http:
 ## Ansible Implementation
 
 ### **1. Let's Encrypt Variables**
+
 ```yaml
 # defaults/main.yml
 traefik_letsencrypt_enabled: true
@@ -248,6 +257,7 @@ traefik_hsts_enabled: true
 ```
 
 ### **2. Certificate Volume Setup**
+
 ```yaml
 # tasks/certificates.yml
 - name: Create certificate storage directory
@@ -266,6 +276,7 @@ traefik_hsts_enabled: true
 ```
 
 ### **3. Certificate Monitoring**
+
 ```yaml
 # tasks/monitoring.yml
 - name: Check certificate expiration
@@ -278,6 +289,7 @@ traefik_hsts_enabled: true
 ## Troubleshooting
 
 ### **1. Certificate Renewal Issues**
+
 ```bash
 # Check certificate status
 docker exec traefik traefik healthcheck
@@ -290,6 +302,7 @@ docker exec traefik traefik --configfile=/etc/traefik/traefik.yml
 ```
 
 ### **2. Common Issues**
+
 - **Rate Limiting**: Let's Encrypt has rate limits (50 certificates per week per domain)
 - **DNS Issues**: Ensure DNS is properly configured for all domains
 - **Port 80**: Must be accessible for HTTP challenge
@@ -298,16 +311,19 @@ docker exec traefik traefik --configfile=/etc/traefik/traefik.yml
 ## Best Practices
 
 ### **1. Domain Management**
+
 - Use descriptive domain names
 - Plan subdomain structure in advance
 - Document all domain assignments
 
 ### **2. Certificate Monitoring**
+
 - Monitor certificate expiration
 - Set up alerts for renewal failures
 - Regular backup of certificate storage
 
 ### **3. Security**
+
 - Enable HSTS headers
 - Use secure cipher suites
 - Regular security updates

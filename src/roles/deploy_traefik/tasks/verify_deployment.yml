@@ -1,0 +1,46 @@
+---
+# Verify independent Traefik deployment
+# Tests functionality without interfering with existing services
+
+- name: Verify Traefik infrastructure is healthy
+  community.docker.docker_container_exec:
+    container: "{{ traefik_container_name }}"
+    command: "wget -q -O- http://localhost:{{ traefik_container_web_port }}"
+  register: container_connectivity
+  changed_when: false
+  failed_when: false
+
+- name: Verify Traefik logs are being written
+  ansible.builtin.wait_for:
+    path: "{{ traefik_logs_dir }}/traefik.log"
+    timeout: 30
+
+- name: Test Docker API integration
+  community.docker.docker_container_exec:
+    container: "{{ traefik_container_name }}"
+    command: traefik version
+  register: traefik_version
+  changed_when: false
+
+- name: Get container info for verification
+  community.docker.docker_container_info:
+    name: "{{ traefik_container_name }}"
+  register: traefik_container_info
+
+- name: Display deployment verification results
+  ansible.builtin.debug:
+    msg: |
+      Traefik deployment verification completed:
+
+      Container Connectivity: {{ 'PASSED' if container_connectivity.rc == 0 else 'FAILED' }}
+      Logs: PASSED
+      Version: {{ traefik_version.stdout }}
+
+      Container Status: {{ 'RUNNING' if traefik_container_info.container.State.Running else 'NOT RUNNING' }}
+      Network: {{ traefik_network_name }}
+      HTTP Port: {{ traefik_web_port }}
+      HTTPS Port: {{ traefik_websecure_port }}
+
+      Note: HTTP 308 redirects indicate Traefik is working correctly (HTTP→HTTPS redirect)
+      Note: HTTP 404/502 responses are normal for empty Traefik proxy
+      Note: This is an independent deployment that won't interfere with existing services.

@@ -6,12 +6,10 @@
 !.vscode/extensions.json
 *.code-workspace
 
-# Environment files
+# Environment variables
 .env
-.env.*
-!.env.example
-.devcontainer/config/.env
-.devcontainer/.env
+.env.local
+.env.*.local
 
 # Devcontainer markers
 .devcontainer/.onCreateCommandMarker
@@ -70,6 +68,12 @@ htmlcov/
 .ansible/
 src/inventory/group_vars/all.yml
 src/inventory/known_hosts
+
+# SSH Keys
+*.pem
+*.key
+id_rsa*
+ovh-*
 
 # Virtual Environment
 venv/

@@ -1,0 +1,55 @@
+---
+# Independent Traefik deployment role
+# Based on devcontainers-deploy-docker standards but completely standalone
+
+- name: Verify all required variables are defined
+  ansible.builtin.assert:
+    that:
+      - traefik_deployment_environment is defined
+      - traefik_container_name is defined
+      - traefik_network_name is defined
+      - traefik_network_subnet is defined
+      - traefik_user is defined
+      - traefik_group is defined
+      - traefik_config_dir is defined
+      - traefik_dynamic_config_dir is defined
+      - traefik_certs_dir is defined
+      - traefik_logs_dir is defined
+      - traefik_web_port is defined
+      - traefik_websecure_port is defined
+      - traefik_dashboard_port is defined
+      - traefik_container_port is defined
+      - traefik_admin_password is defined
+      - traefik_acme_email is defined
+      - traefik_acme_staging is defined
+      - traefik_acme_storage is defined
+    fail_msg: "Critical variables are not defined. Deployment cannot proceed. Check inventory configuration."
+    success_msg: "All critical variables are properly defined. Proceeding with deployment."
+
+- name: Include pre-flight checks
+  ansible.builtin.include_tasks: preflight.yml
+  tags: [preflight, always]
+
+- name: Include system preparation
+  ansible.builtin.include_tasks: prepare_system.yml
+  tags: [prepare, system]
+
+- name: Include user and directory setup
+  ansible.builtin.include_tasks: setup_users_dirs.yml
+  tags: [setup, users, directories]
+
+- name: Include Traefik configuration
+  ansible.builtin.include_tasks: configure_traefik.yml
+  tags: [configure, traefik]
+
+- name: Include Docker deployment
+  ansible.builtin.include_tasks: deploy_docker.yml
+  tags: [deploy, docker]
+
+- name: Include post-deployment setup
+  ansible.builtin.include_tasks: post_deploy.yml
+  tags: [post_deploy, setup]
+
+- name: Include verification and testing
+  ansible.builtin.include_tasks: verify_deployment.yml
+  tags: [verify, test]

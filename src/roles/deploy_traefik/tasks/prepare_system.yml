@@ -1,0 +1,29 @@
+---
+# Prepare system for independent Traefik deployment
+# Creates dedicated network without interfering with existing deployments
+
+- name: Check if Traefik Docker network already exists
+  community.docker.docker_network_info:
+    name: "{{ traefik_network_name }}"
+  register: traefik_network_info
+  failed_when: false
+
+- name: Create Traefik Docker network if it doesn't exist
+  community.docker.docker_network:
+    name: "{{ traefik_network_name }}"
+    driver: bridge
+    ipam_config:
+      - subnet: "{{ traefik_network_subnet }}"
+    state: present
+    labels:
+      description: "Traefik reverse proxy network (independent deployment)"
+      environment: "{{ traefik_deployment_environment }}"
+      managed_by: "ansible"
+      project: "traefik-standalone"
+  when: not traefik_network_info.exists
+  register: traefik_network_result
+  changed_when: traefik_network_result.changed
+
+- name: Verify Traefik network is ready
+  ansible.builtin.debug:
+    msg: "Traefik network '{{ traefik_network_name }}' is ready"

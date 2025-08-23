@@ -1,0 +1,30 @@
+# Log rotation configuration for independent Traefik deployment
+# Integrated with system logrotate
+
+{{ traefik_logs_dir }}/traefik.log {
+    daily
+    missingok
+    rotate {{ traefik_log_rotation_days }}
+    compress
+    delaycompress
+    notifempty
+    create {{ traefik_log_rotation_mode }} {{ traefik_user }} {{ traefik_group }}
+    postrotate
+        # Reload Traefik to reopen log files
+        docker exec {{ traefik_container_name }} kill -HUP 1 || true
+    endscript
+}
+
+{{ traefik_logs_dir }}/access.log {
+    daily
+    missingok
+    rotate {{ traefik_log_rotation_days }}
+    compress
+    delaycompress
+    notifempty
+    create {{ traefik_log_rotation_mode }} {{ traefik_user }} {{ traefik_group }}
+    postrotate
+        # Reload Traefik to reopen log files
+        docker exec {{ traefik_container_name }} kill -HUP 1 || true
+    endscript
+}

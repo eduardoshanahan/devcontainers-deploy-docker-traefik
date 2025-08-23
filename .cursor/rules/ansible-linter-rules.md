@@ -8,14 +8,16 @@ When handling potential failures in Ansible tasks, **NEVER use `ignore_errors: t
 
 ### **Rule: Replace ignore_errors with failed_when**
 
-**❌ WRONG - Don't do this:**
+**FAIL - Don't do this:**
+
 ```yaml
 - name: Test configuration
   ansible.builtin.command: some-command
   ignore_errors: true
 ```
 
-**✅ CORRECT - Do this instead:**
+**PASS - Do this instead:**
+
 ```yaml
 - name: Test configuration
   ansible.builtin.command: some-command
@@ -25,6 +27,7 @@ When handling potential failures in Ansible tasks, **NEVER use `ignore_errors: t
 ### **Common Patterns**
 
 **For configuration tests that shouldn't fail deployment:**
+
 ```yaml
 - name: Test rsyslog configuration
   ansible.builtin.command: rsyslogd -N1
@@ -32,6 +35,7 @@ When handling potential failures in Ansible tasks, **NEVER use `ignore_errors: t
 ```
 
 **For optional operations:**
+
 ```yaml
 - name: Optional cleanup
   ansible.builtin.file:
@@ -41,6 +45,7 @@ When handling potential failures in Ansible tasks, **NEVER use `ignore_errors: t
 ```
 
 **For commands that might fail but shouldn't stop deployment:**
+
 ```yaml
 - name: Check service status
   ansible.builtin.command: systemctl status optional-service

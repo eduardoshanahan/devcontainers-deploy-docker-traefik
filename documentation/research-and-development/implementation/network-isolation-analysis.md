@@ -7,49 +7,59 @@ This document analyzes the implications of implementing network isolation for ap
 ## Network Isolation Options
 
 ### **Option 1: Single Shared Network**
-```
+
+```text
 Internet → Traefik (traefik-public) → All Applications (traefik-public)
 ```
 
 **Pros:**
+
 - Simple configuration
+
 - Easy application deployment
 - No network complexity
 - Direct communication between applications
 
 **Cons:**
+
 - No network isolation
 - Security vulnerabilities
 - Applications can access each other directly
 - No network-level security boundaries
 
 ### **Option 2: Hybrid Approach (Recommended)**
-```
+
+```text
 Internet → Traefik (traefik-public) → Applications (app-specific networks + traefik-public)
 ```
 
 **Pros:**
+
 - Applications isolated in their own networks
 - Traefik can still discover and route to applications
 - Enhanced security through network isolation
 - Applications can have private services (databases, etc.)
 
 **Cons:**
+
 - Slightly more complex configuration
 - Applications need to be on multiple networks
 - Requires careful network planning
 
 ### **Option 3: Full Network Isolation**
-```
+
+```text
 Internet → Traefik (traefik-public) → Applications (completely isolated networks)
 ```
 
 **Pros:**
+
 - Maximum security isolation
 - Complete network separation
 - No inter-application communication possible
 
 **Cons:**
+
 - Very complex configuration
 - Difficult to implement with Traefik
 - Limited practical benefits over hybrid approach
@@ -57,6 +67,7 @@ Internet → Traefik (traefik-public) → Applications (completely isolated netw
 ## Recommended Implementation: Hybrid Approach
 
 ### **Network Architecture**
+
 ```yaml
 # Traefik Network
 networks:
@@ -75,6 +86,7 @@ networks:
 ```
 
 ### **Application Configuration**
+
 ```yaml
 # Example: WordPress Application
 services:
@@ -115,13 +127,17 @@ networks:
 ## Implementation Complexity Analysis
 
 ### **Traefik Deployment Complexity**
-**Impact: Minimal**
+
+#### **Impact: Minimal**
+
 - Traefik only needs to be on `traefik-public` network
 - No changes to Traefik configuration required
 - Service discovery works exactly the same
 
 ### **Application Deployment Complexity**
-**Impact: Low to Moderate**
+
+#### **Impact: Low to Moderate**
+
 - Applications need to be on two networks:
   1. `traefik-public` (for Traefik communication)
   2. `app-specific-network` (for internal services)
@@ -129,7 +145,9 @@ networks:
 - Ansible templates need to include network setup
 
 ### **Security Benefits**
-**Impact: High**
+
+#### **Impact: High**
+
 - Applications cannot directly access each other
 - Internal services (databases, caches) are isolated
 - Network-level security boundaries
@@ -138,6 +156,7 @@ networks:
 ## Ansible Implementation Strategy
 
 ### **1. Network Creation**
+
 ```yaml
 # tasks/networks.yml
 - name: Create Traefik public network
@@ -157,6 +176,7 @@ networks:
 ```
 
 ### **2. Application Template**
+
 ```yaml
 # templates/application-compose.yml.j2
 version: '3.8'
@@ -203,6 +223,7 @@ volumes:
 ```
 
 ### **3. Application Deployment Variables**
+
 ```yaml
 # defaults/main.yml
 app_networks:
@@ -216,12 +237,14 @@ app_database_networks:
 ## Security Analysis
 
 ### **Network Security Benefits**
+
 1. **Application Isolation**: Applications cannot directly communicate
 2. **Database Protection**: Databases are only accessible from their application
 3. **Service Isolation**: Internal services are protected
 4. **Attack Surface Reduction**: Limited network exposure
 
 ### **Traefik Security**
+
 1. **Controlled Access**: Only Traefik can route to applications
 2. **SSL Termination**: All traffic encrypted
 3. **Rate Limiting**: Can be applied per application
@@ -230,11 +253,13 @@ app_database_networks:
 ## Complexity vs. Security Trade-off
 
 ### **Complexity Increase**
+
 - **Low**: Network configuration in Docker Compose
 - **Low**: Ansible template updates
 - **Minimal**: Traefik configuration changes
 
-### **Security Benefits**
+### **Security Benefits trade-off**
+
 - **High**: Network-level isolation
 - **High**: Reduced attack surface
 - **High**: Application independence
@@ -253,16 +278,19 @@ app_database_networks:
 ## Implementation Plan
 
 ### **Phase 1: Basic Network Setup**
+
 1. Create `traefik-public` network
 2. Deploy Traefik with network configuration
 3. Test basic functionality
 
 ### **Phase 2: Application Network Integration**
+
 1. Update application templates
 2. Create network creation tasks
 3. Test application deployment
 
 ### **Phase 3: Security Validation**
+
 1. Test network isolation
 2. Validate security boundaries
 3. Document network architecture

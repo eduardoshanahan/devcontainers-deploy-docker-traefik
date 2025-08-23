@@ -1,0 +1,61 @@
+# Traefik main configuration for independent deployment
+# Based on devcontainers-deploy-docker security principles
+
+api:
+  dashboard: {{ traefik_dashboard_enabled | lower }}
+  insecure: false
+
+entryPoints:
+  web:
+    address: ":{{ traefik_web_port }}"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+          permanent: true
+  websecure:
+    address: ":{{ traefik_websecure_port }}"
+
+providers:
+  file:
+    directory: {{ traefik_dynamic_config_path }}
+    watch: true
+  docker:
+    endpoint: "unix://{{ traefik_docker_socket }}"
+    exposedByDefault: false
+    network: "{{ traefik_network_name }}"
+    useBindPortIP: false
+
+# Let's Encrypt Configuration
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: "{{ traefik_acme_email }}"
+      storage: "{{ traefik_acme_storage }}"
+{% if traefik_acme_staging %}
+      caServer: "https://acme-staging-v02.api.letsencrypt.org/directory"
+{% endif %}
+      httpChallenge:
+        entryPoint: web
+
+log:
+  level: {{ traefik_log_level }}
+  filePath: /var/log/traefik/traefik.log
+
+accessLog:
+  filePath: /var/log/traefik/access.log
+  format: json
+
+# Security settings
+serverTransport:
+  insecureSkipVerify: false
+
+# Metrics (if monitoring is enabled)
+metrics:
+  prometheus:
+    buckets: {{ traefik_prometheus_buckets }}
+
+# Health checks
+ping:
+  entryPoint: web
