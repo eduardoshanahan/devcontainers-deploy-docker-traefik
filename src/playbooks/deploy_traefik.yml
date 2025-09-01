@@ -1,39 +1,26 @@
 ---
-# Independent Traefik Reverse Proxy Deployment
-# Based on devcontainers-deploy-docker standards but completely standalone
+# Traefik Docker Deployment (docker_deployment user)
+# Run this after system setup
 
 - name: Deploy Traefik Reverse Proxy
-  hosts: vps
+  hosts: docker_ops
   gather_facts: true
-  become: true # This will use initial_deployment_user for sudo
+  become: false
 
   vars_files:
     - "../inventory/group_vars/all/main.yml"
-    - "../inventory/group_vars/{{ traefik_deployment_environment }}/main.yml"
+    - "../../secrets/vault.yml"
 
   pre_tasks:
-    - name: Verify required variables are defined
-      ansible.builtin.assert:
-        that:
-          - traefik_deployment_environment is defined
-          - traefik_container_name is defined
-          - traefik_dashboard_port is defined
-          - traefik_web_port is defined
-          - traefik_websecure_port is defined
-        fail_msg: "Required variables are not defined. Check inventory configuration."
-        success_msg: "All required variables are properly defined."
+    - name: Verify docker_deployment user has access to Traefik directories
+      ansible.builtin.stat:
+        path: "{{ traefik_root }}"
+      register: traefik_root_stat
 
-    - name: Verify Docker is running
-      ansible.builtin.command: docker info
-      register: docker_info
-      changed_when: false
-      failed_when: docker_info.rc != 0
-
-    - name: Check existing Traefik deployment
-      community.docker.docker_container_info:
-        name: "{{ traefik_container_name }}"
-      register: existing_traefik
-      failed_when: false
+    - name: Fail if docker_deployment cannot access Traefik directories
+      ansible.builtin.fail:
+        msg: "docker_deployment user cannot access {{ traefik_root }}. Run setup_traefik_system.yml first."
+      when: not traefik_root_stat.stat.exists
 
   roles:
     - role: deploy_traefik
@@ -47,9 +34,8 @@
           {% if traefik_dashboard_enabled %}
           Dashboard: http://{{ ansible_host }}:{{ traefik_dashboard_port }}
           {% else %}
-          Dashboard: Disabled (production security)
+          Dashboard: Disabled (security)
           {% endif %}
           Proxy ports: {{ traefik_web_port }}, {{ traefik_websecure_port }}
 
           Container name: {{ traefik_container_name }}
-          Environment: {{ traefik_deployment_environment }}

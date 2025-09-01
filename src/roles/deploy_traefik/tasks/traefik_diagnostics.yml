@@ -1,0 +1,240 @@
+---
+# Traefik Diagnostic Tests
+# Comprehensive checks to identify configuration and runtime issues
+
+- name: Check Traefik container status and health
+  ansible.builtin.debug:
+    msg: "=== TRAEFIK CONTAINER DIAGNOSTICS ==="
+
+- name: Verify Traefik container is running
+  community.docker.docker_container_info:
+    name: "{{ traefik_container_name }}"
+  register: traefik_container_info
+
+- name: Display container status
+  ansible.builtin.debug:
+    msg: |
+      Container Status: {{ traefik_container_info.container.State.Status }}
+      Container Health: {{ traefik_container_info.container.State.Health.Status | default('N/A') }}
+      Container Started: {{ traefik_container_info.container.State.StartedAt }}
+
+- name: Check Traefik configuration file paths
+  ansible.builtin.debug:
+    msg: "=== CONFIGURATION PATH DIAGNOSTICS ==="
+
+- name: Verify Traefik configuration file exists
+  ansible.builtin.stat:
+    path: "{{ traefik_config_file }}"
+  register: traefik_config_stat
+
+- name: Display configuration file status
+  ansible.builtin.debug:
+    msg: |
+      Config file exists: {{ traefik_config_stat.stat.exists }}
+      Config file path: {{ traefik_config_file }}
+      Config file size: {{ traefik_config_stat.stat.size | default('N/A') }}
+
+- name: Check Traefik configuration content
+  ansible.builtin.debug:
+    msg: "=== CONFIGURATION CONTENT DIAGNOSTICS ==="
+
+- name: Read Traefik configuration file
+  ansible.builtin.slurp:
+    src: "{{ traefik_config_file }}"
+  register: traefik_config_content
+
+- name: Display key configuration values
+  ansible.builtin.debug:
+    msg: |
+      Configuration file content (first 500 chars):
+      {{ (traefik_config_content.content | b64decode)[:500] }}
+
+- name: Check variable resolution for Let's Encrypt
+  ansible.builtin.debug:
+    msg: "=== LET'S ENCRYPT VARIABLE DIAGNOSTICS ==="
+
+- name: Display Let's Encrypt variable values
+  ansible.builtin.debug:
+    msg: |
+      Let's Encrypt Variables:
+      - traefik_acme_email: {{ traefik_acme_email | default('NOT SET') }}
+      - traefik_acme_staging: {{ traefik_acme_staging | default('NOT SET') }}
+      - traefik_acme_storage: {{ traefik_acme_storage | default('NOT SET') }}
+      - traefik_dynamic_config_path: {{ traefik_dynamic_config_path | default('NOT SET') }}
+      - traefik_network_name: {{ traefik_network_name | default('NOT SET') }}
+
+- name: Check if certificatesResolvers section exists in config
+  ansible.builtin.shell: grep -c "certificatesResolvers" {{ traefik_config_file }}
+  register: cert_resolver_check
+
+- name: Display certificatesResolvers check
+  ansible.builtin.debug:
+    msg: |
+      certificatesResolvers section found: {{ cert_resolver_check.stdout }} times
+
+- name: Check complete configuration file content
+  ansible.builtin.shell: cat {{ traefik_config_file }}
+  register: complete_config
+
+- name: Display complete configuration
+  ansible.builtin.debug:
+    msg: |
+      Complete Configuration File:
+      {{ complete_config.stdout }}
+
+- name: Check for path configuration issues
+  ansible.builtin.debug:
+    msg: "=== PATH CONFIGURATION DIAGNOSTICS ==="
+
+- name: Verify host paths exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ traefik_root }}"
+    - "{{ traefik_config_file }}"
+    - "{{ traefik_dynamic_config_dir }}"
+    - "{{ traefik_root }}/acme"
+    - "{{ traefik_log_path }}"
+  register: host_paths_check
+
+- name: Display host path status
+  ansible.builtin.debug:
+    msg: |
+      Host Paths Status:
+      {% for item in host_paths_check.results %}
+      - {{ item.item }}: {{ 'EXISTS' if item.stat.exists else 'MISSING' }}
+      {% endfor %}
+
+- name: Check container volume mounts
+  ansible.builtin.debug:
+    msg: "=== VOLUME MOUNT DIAGNOSTICS ==="
+
+- name: Get container mount information
+  community.docker.docker_container_info:
+    name: "{{ traefik_container_name }}"
+  register: container_mounts
+
+- name: Display volume mount information
+  ansible.builtin.debug:
+    msg: |
+      Volume Mounts:
+      {% for mount in container_mounts.container.Mounts %}
+      - Source: {{ mount.Source }}
+        Destination: {{ mount.Destination }}
+        Mode: {{ mount.Mode }}
+        RW: {{ mount.RW }}
+      {% endfor %}
+
+- name: Check Traefik logs and runtime
+  ansible.builtin.debug:
+    msg: "=== LOGS AND RUNTIME DIAGNOSTICS ==="
+
+- name: Check if Traefik is generating logs
+  ansible.builtin.stat:
+    path: "{{ traefik_log_path }}/traefik.log"
+  register: traefik_log_check
+
+- name: Display log file status
+  ansible.builtin.debug:
+    msg: |
+      Log file exists: {{ traefik_log_check.stat.exists }}
+      Log file size: {{ traefik_log_check.stat.size | default('N/A') }}
+      Log file modified: {{ traefik_log_check.stat.mtime | default('N/A') }}
+
+- name: Check Traefik process status inside container
+  ansible.builtin.shell: docker exec {{ traefik_container_name }} ps aux
+  register: traefik_processes
+
+- name: Display process information
+  ansible.builtin.debug:
+    msg: |
+      Traefik processes inside container:
+      {{ traefik_processes.stdout_lines | join('\n') }}
+
+- name: Check Traefik configuration validation
+  ansible.builtin.debug:
+    msg: "=== CONFIGURATION VALIDATION DIAGNOSTICS ==="
+
+- name: Test Traefik configuration syntax
+  ansible.builtin.shell: docker exec {{ traefik_container_name }} traefik version
+  register: traefik_version_check
+
+- name: Display Traefik version
+  ansible.builtin.debug:
+    msg: |
+      Traefik Version:
+      {{ traefik_version_check.stdout_lines | join('\n') }}
+
+- name: Check if Traefik can read its configuration
+  ansible.builtin.shell: docker exec {{ traefik_container_name }} cat /etc/traefik/traefik.yml | head -20
+  register: traefik_config_read
+
+- name: Display configuration read test
+  ansible.builtin.debug:
+    msg: |
+      Configuration read test:
+      {{ traefik_config_read.stdout_lines | join('\n') }}
+
+- name: Check Docker provider connectivity
+  ansible.builtin.debug:
+    msg: "=== DOCKER PROVIDER DIAGNOSTICS ==="
+
+- name: Test Docker socket access
+  ansible.builtin.shell: docker exec {{ traefik_container_name }} ls -la /var/run/docker.sock
+  register: docker_socket_check
+
+- name: Display Docker socket status
+  ansible.builtin.debug:
+    msg: |
+      Docker socket access:
+      {{ docker_socket_check.stdout_lines | join('\n') }}
+
+- name: Check network connectivity
+  ansible.builtin.debug:
+    msg: "=== NETWORK CONNECTIVITY DIAGNOSTICS ==="
+
+- name: List containers on Traefik network
+  community.docker.docker_network_info:
+    name: "{{ traefik_network_name }}"
+  register: network_info
+
+- name: Display network information
+  ansible.builtin.debug:
+    msg: |
+      Network: {{ traefik_network_name }}
+      Containers on network:
+      {% for container_id, container_info in network_info.network.Containers.items() %}
+      - {{ container_info.Name }} ({{ container_info.IPv4Address }})
+      {% endfor %}
+
+- name: Check Traefik response to HTTP requests
+  ansible.builtin.debug:
+    msg: "=== HTTP RESPONSE DIAGNOSTICS ==="
+
+- name: Test HTTP response from Traefik
+  ansible.builtin.shell: docker exec {{ traefik_container_name }} wget -qO- http://localhost:80
+  register: http_response_test
+  failed_when: false
+
+- name: Display HTTP response test
+  ansible.builtin.debug:
+    msg: |
+      HTTP response test:
+      {{ http_response_test.stdout_lines | join('\n') if http_response_test.stdout_lines else 'No response' }}
+
+- name: Final diagnostic summary
+  ansible.builtin.debug:
+    msg: |
+      === DIAGNOSTIC SUMMARY ===
+      
+      Container Status: {{ traefik_container_info.container.State.Status }}
+      Config File: {{ 'EXISTS' if traefik_config_stat.stat.exists else 'MISSING' }}
+      Log File: {{ 'EXISTS' if traefik_log_check.stat.exists else 'MISSING' }}
+      Docker Socket: {{ 'ACCESSIBLE' if docker_socket_check.rc == 0 else 'NOT ACCESSIBLE' }}
+      Network Containers: {{ network_info.network.Containers | length }}
+      
+      Next steps:
+      1. Check if all paths are correct
+      2. Verify volume mounts are working
+      3. Check Traefik logs for errors
+      4. Verify Docker provider is starting

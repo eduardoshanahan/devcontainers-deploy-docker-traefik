@@ -11,9 +11,9 @@
   failed_when: false
 
 - name: Verify Traefik logs are being written
-  ansible.builtin.wait_for:
-    path: "{{ traefik_logs_dir }}/traefik.log"
-    timeout: 30
+  ansible.builtin.stat:
+    path: "{{ traefik_log_path }}/traefik.log"
+  register: traefik_log_file
 
 - name: Test Docker API integration
   community.docker.docker_container_exec:
@@ -26,6 +26,9 @@
   community.docker.docker_container_info:
     name: "{{ traefik_container_name }}"
   register: traefik_container_info
+
+- name: Include comprehensive Traefik diagnostics
+  include_tasks: traefik_diagnostics.yml
 
 - name: Display deployment verification results
   ansible.builtin.debug:

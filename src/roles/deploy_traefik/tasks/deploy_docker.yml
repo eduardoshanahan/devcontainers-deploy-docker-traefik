@@ -1,6 +1,6 @@
 ---
 # Deploy Traefik using Docker
-# Independent deployment that doesn't interfere with existing containers
+# Following simplified directory management approach
 
 - name: Verify required Docker variables are defined
   ansible.builtin.assert:
@@ -17,12 +17,10 @@
       - traefik_container_config_path is defined
       - traefik_dynamic_config_dir is defined
       - traefik_container_dynamic_path is defined
-      - traefik_certs_dir is defined
+      - traefik_root is defined
       - traefik_container_certs_path is defined
-      - traefik_logs_dir is defined
       - traefik_container_logs_path is defined
       - traefik_docker_socket is defined
-      - traefik_deployment_environment is defined
     fail_msg: "Required Docker variables are not defined. Check inventory configuration."
     success_msg: "All required Docker variables are properly defined."
 
@@ -46,6 +44,11 @@
     source: pull
     force_source: true
 
+- name: Create shared docker network
+  community.docker.docker_network:
+    name: "{{ traefik_network_name }}"
+    state: present
+
 - name: Deploy Traefik container
   community.docker.docker_container:
     name: "{{ traefik_container_name }}"
@@ -56,17 +59,16 @@
       - name: "{{ traefik_network_name }}"
     ports: "{{ traefik_base_ports + (traefik_dashboard_ports if traefik_dashboard_enabled else []) }}"
     volumes:
-      - "{{ traefik_config_file }}:{{ traefik_container_config_path }}:ro"
-      - "{{ traefik_dynamic_config_dir }}:{{ traefik_container_dynamic_path }}:ro"
-      - "{{ traefik_certs_dir }}:{{ traefik_container_certs_path }}:ro"
-      - "{{ traefik_logs_dir }}:{{ traefik_container_logs_path }}"
+      - "{{ traefik_root }}/traefik.yml:{{ traefik_container_config_path }}:ro"
+      - "{{ traefik_root }}/dynamic:{{ traefik_container_dynamic_path }}:ro"
+      - "{{ traefik_root }}/acme:{{ traefik_container_certs_path }}"
+      - "{{ traefik_root }}/logs:{{ traefik_container_logs_path }}"
       - "{{ traefik_docker_socket }}:{{ traefik_docker_socket }}:ro"
     labels:
-      description: "Traefik reverse proxy (independent deployment)"
-      environment: "{{ traefik_deployment_environment }}"
+      description: "Traefik reverse proxy (simplified deployment)"
       managed_by: "ansible"
       project: "traefik-standalone"
 
 - name: Verify container deployment
   ansible.builtin.debug:
-    msg: "Traefik container deployed successfully"
+    msg: "Traefik container deployed successfully with simplified directory structure"

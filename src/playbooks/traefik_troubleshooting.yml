@@ -1,0 +1,159 @@
+---
+# =============================================================================
+# TRAEFIK TROUBLESHOOTING PLAYBOOK
+# =============================================================================
+# This playbook fixes common Traefik issues
+# Focuses on Traefik-only problems, not application deployments
+# =============================================================================
+
+- name: Troubleshoot Common Traefik Issues
+  hosts: docker_ops # Use docker_ops group instead of vps
+  gather_facts: true
+  become: false
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+
+  tasks:
+    - name: Display troubleshooting configuration
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK TROUBLESHOOTING
+          ==============================================================================
+          Traefik Container: {{ traefik_container_name }}
+          Network: {{ traefik_network_name }}
+          ==============================================================================
+
+    # =============================================================================
+    # DIAGNOSE CURRENT STATE
+    # =============================================================================
+
+    - name: Check current Traefik status
+      community.docker.docker_container_info:
+        name: "{{ traefik_container_name }}"
+      register: current_traefik_status
+
+    - name: Check Traefik network
+      community.docker.docker_network_info:
+        name: "{{ traefik_network_name }}"
+      register: current_network_status
+      ignore_errors: true
+
+    # =============================================================================
+    # FIX NETWORK ISSUES
+    # =============================================================================
+
+    - name: Create Traefik network if missing
+      community.docker.docker_network:
+        name: "{{ traefik_network_name }}"
+        driver: bridge
+        ipam_config:
+          - subnet: "{{ traefik_network_subnet }}"
+        state: present
+      when: not current_network_status.network
+
+    # =============================================================================
+    # FIX CONTAINER ISSUES
+    # =============================================================================
+
+    - name: Restart Traefik container if not running
+      community.docker.docker_container:
+        name: "{{ traefik_container_name }}"
+        state: started
+        restart_policy: "{{ traefik_docker_restart_policy }}"
+      when: not current_traefik_status.container or not current_traefik_status.container.State.Running
+
+    # =============================================================================
+    # FIX CONFIGURATION ISSUES
+    # =============================================================================
+
+    - name: Ensure Traefik directories exist (without changing ownership)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "{{ traefik_dir_mode }}"
+      loop:
+        - "{{ traefik_root }}"
+        - "{{ traefik_config_file }}"
+        - "{{ traefik_dynamic_config_dir }}"
+        - "{{ traefik_root }}/acme"
+        - "{{ traefik_log_path }}"
+
+    - name: Check if Traefik configuration file exists
+      ansible.builtin.stat:
+        path: "{{ traefik_config_file }}"
+      register: traefik_config_file_stat
+
+    - name: Ensure Traefik configuration files exist
+      ansible.builtin.file:
+        path: "{{ traefik_config_file }}"
+        state: file
+        mode: "{{ traefik_config_file_mode }}"
+      when: not traefik_config_file_stat.stat.exists
+
+    - name: Check if Traefik dynamic configuration exists
+      ansible.builtin.stat:
+        path: "{{ traefik_dynamic_config_dir ~ '/middlewares.yml' }}"
+      register: traefik_dynamic_config_stat
+
+    - name: Ensure Traefik dynamic configuration exists
+      ansible.builtin.file:
+        path: "{{ traefik_dynamic_config_dir ~ '/middlewares.yml' }}"
+        state: file
+        mode: "{{ traefik_config_file_mode }}"
+      when: not traefik_dynamic_config_stat.stat.exists
+
+    # =============================================================================
+    # FIX CERTIFICATE ISSUES
+    # =============================================================================
+
+    - name: Check if ACME certificate file exists
+      ansible.builtin.stat:
+        path: "{{ traefik_acme_storage }}"
+      register: traefik_acme_stat
+
+    - name: Create ACME certificate file if missing
+      ansible.builtin.copy:
+        content: "{}"
+        dest: "{{ traefik_acme_storage }}"
+        mode: "0600"
+        force: false
+      when: not traefik_acme_stat.stat.exists
+
+    # =============================================================================
+    # VERIFY FIXES
+    # =============================================================================
+
+    - name: Wait for Traefik to start (if restarted)
+      ansible.builtin.wait_for:
+        port: "{{ traefik_web_port }}"
+        timeout: 30
+      when: not current_traefik_status.container or not current_traefik_status.container.State.Running
+
+    - name: Verify Traefik is responding
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ traefik_web_port }}"
+        method: GET
+        timeout: 10
+      register: traefik_verification
+      retries: 3
+      delay: 5
+      until: traefik_verification.status is defined
+
+    # =============================================================================
+    # TROUBLESHOOTING SUMMARY
+    # =============================================================================
+
+    - name: Display troubleshooting results
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK TROUBLESHOOTING COMPLETED
+          ==============================================================================
+          Network Status: {{ '✅ CREATED' if not current_network_status.network else '✅ EXISTING' }}
+          Container Status: {{ '✅ RESTARTED' if not current_traefik_status.container or not current_traefik_status.container.State.Running else '✅ RUNNING' }}
+          Configuration: {{ '✅ VERIFIED' if traefik_config_file_stat.stat.exists else '❌ MISSING' }}
+          Dynamic Config: {{ '✅ VERIFIED' if traefik_dynamic_config_stat.stat.exists else '❌ MISSING' }}
+          Certificates: {{ '✅ VERIFIED' if traefik_acme_stat.stat.exists else '❌ MISSING' }}
+          HTTP Response: {{ '✅ WORKING' if traefik_verification.status is defined else '❌ FAILED' }}
+          ==============================================================================

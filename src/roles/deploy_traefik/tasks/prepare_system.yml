@@ -17,7 +17,6 @@
     state: present
     labels:
       description: "Traefik reverse proxy network (independent deployment)"
-      environment: "{{ traefik_deployment_environment }}"
       managed_by: "ansible"
       project: "traefik-standalone"
   when: not traefik_network_info.exists

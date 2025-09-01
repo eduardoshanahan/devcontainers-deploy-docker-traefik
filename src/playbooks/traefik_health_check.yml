@@ -1,0 +1,50 @@
+---
+# =============================================================================
+# TRAEFIK HEALTH CHECK PLAYBOOK
+# =============================================================================
+# This playbook performs quick health checks on Traefik
+# Useful for monitoring and alerting
+# =============================================================================
+
+- name: Check Traefik Health
+  hosts: docker_ops # Use docker_ops group instead of vps
+  gather_facts: true
+  become: false
+
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+
+  tasks:
+    - name: Quick Traefik health check
+      community.docker.docker_container_info:
+        name: "{{ traefik_container_name }}"
+      register: health_check
+
+    - name: Test Traefik HTTP response
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ traefik_web_port }}"
+        method: GET
+        timeout: 5
+      register: http_check
+      ignore_errors: true
+
+    - name: Test Traefik HTTPS response
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:{{ traefik_websecure_port }}"
+        method: GET
+        timeout: 5
+        validate_certs: false
+      register: https_check
+      ignore_errors: true
+
+    - name: Generate health status
+      ansible.builtin.debug:
+        msg: |
+          =============================================================================
+          TRAEFIK HEALTH STATUS
+          =============================================================================
+          Timestamp: {{ ansible_date_time.iso8601 | default('N/A') }}
+          Container Status: {{ health_check.container.State.Running | default('Unknown') if health_check.container else 'Not Found' }}
+          HTTP Port 80: {{ http_check.status | default('Failed') }}
+          HTTPS Port 443: {{ https_check.status | default('Failed') }}
+          =============================================================================

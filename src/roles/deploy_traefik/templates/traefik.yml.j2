@@ -1,33 +1,24 @@
-# Traefik main configuration for independent deployment
-# Based on devcontainers-deploy-docker security principles
+# Traefik main configuration for simplified deployment
+# Following team guidelines for directory structure
+
+entryPoints:
+  web:
+    address: ":{{ traefik_web_port }}"
+  websecure:
+    address: ":{{ traefik_websecure_port }}"
+
+providers:
+  docker:
+    endpoint: "unix://{{ traefik_docker_socket }}"
+    exposedByDefault: false
+  file:
+    directory: "{{ traefik_container_dynamic_path }}"
+    watch: true
 
 api:
   dashboard: {{ traefik_dashboard_enabled | lower }}
   insecure: false
 
-entryPoints:
-  web:
-    address: ":{{ traefik_web_port }}"
-    http:
-      redirections:
-        entrypoint:
-          to: websecure
-          scheme: https
-          permanent: true
-  websecure:
-    address: ":{{ traefik_websecure_port }}"
-
-providers:
-  file:
-    directory: {{ traefik_dynamic_config_path }}
-    watch: true
-  docker:
-    endpoint: "unix://{{ traefik_docker_socket }}"
-    exposedByDefault: false
-    network: "{{ traefik_network_name }}"
-    useBindPortIP: false
-
-# Let's Encrypt Configuration
 certificatesResolvers:
   letsencrypt:
     acme:
@@ -41,21 +32,7 @@ certificatesResolvers:
 
 log:
   level: {{ traefik_log_level }}
-  filePath: /var/log/traefik/traefik.log
+  filePath: "{{ traefik_container_logs_path }}/traefik.log"
 
 accessLog:
-  filePath: /var/log/traefik/access.log
-  format: json
-
-# Security settings
-serverTransport:
-  insecureSkipVerify: false
-
-# Metrics (if monitoring is enabled)
-metrics:
-  prometheus:
-    buckets: {{ traefik_prometheus_buckets }}
-
-# Health checks
-ping:
-  entryPoint: web
+  filePath: "{{ traefik_container_logs_path }}/access.log"

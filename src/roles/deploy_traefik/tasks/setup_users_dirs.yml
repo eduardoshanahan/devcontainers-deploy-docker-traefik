@@ -1,20 +1,16 @@
 ---
-# Setup users and directories for independent Traefik deployment
-# Creates dedicated user without interfering with existing users
+# Setup users and directories for Traefik deployment
+# Following simplified directory management approach
 
 - name: Verify all required variables are defined
   ansible.builtin.assert:
     that:
-      - traefik_deployment_environment is defined
       - traefik_container_name is defined
       - traefik_network_name is defined
       - traefik_network_subnet is defined
       - traefik_user is defined
       - traefik_group is defined
-      - traefik_config_dir is defined
-      - traefik_dynamic_config_dir is defined
-      - traefik_certs_dir is defined
-      - traefik_logs_dir is defined
+      - traefik_root is defined
       - traefik_web_port is defined
       - traefik_websecure_port is defined
       - traefik_dashboard_port is defined
@@ -31,70 +27,62 @@
     that:
       - traefik_group is defined
       - traefik_user is defined
-      - traefik_user_groups is defined
       - traefik_user_shell is defined
       - traefik_user_create_home is defined
       - traefik_dir_mode is defined
-      - traefik_sensitive_dir_mode is defined
-      - traefik_config_dir is defined
-      - traefik_dynamic_config_dir is defined
-      - traefik_certs_dir is defined
-      - traefik_logs_dir is defined
+      - traefik_root is defined
     fail_msg: "Required user variables are not defined. Check inventory configuration."
     success_msg: "All required user variables are properly defined."
 
-- name: Ensure traefik group exists
+- name: Ensure traefik system group
   ansible.builtin.group:
     name: "{{ traefik_group }}"
-    state: present
+    system: true
+  become: true
 
-- name: Ensure traefik user exists
+- name: Ensure traefik system user
   ansible.builtin.user:
     name: "{{ traefik_user }}"
-    state: present
-    groups: "{{ traefik_user_groups }}"
-    append: true
+    group: "{{ traefik_group }}"
+    system: true
     shell: "{{ traefik_user_shell }}"
-    home: "/home/{{ traefik_user }}"
     create_home: "{{ traefik_user_create_home }}"
+    groups: "{{ traefik_user_groups | default([]) }}"
+  become: true
 
-- name: Create Traefik directories
+- name: Create Traefik root directory
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: "{{ traefik_root }}"
+    state: directory
+    owner: "{{ traefik_user }}"
+    group: "{{ traefik_group }}"
+    mode: "{{ traefik_dir_mode }}"
+  become: true
+
+- name: Create Traefik subdirectories
+  ansible.builtin.file:
+    path: "{{ traefik_root }}/{{ item }}"
     state: directory
     owner: "{{ traefik_user }}"
     group: "{{ traefik_group }}"
     mode: "{{ traefik_dir_mode }}"
   loop:
-    - "{{ traefik_config_dir }}"
-    - "{{ traefik_dynamic_config_dir }}"
-    - "{{ traefik_certs_dir }}"
-    - "{{ traefik_logs_dir }}"
+    - ""
+    - dynamic
+    - acme
+    - logs
+  become: true
 
-- name: Set proper permissions on sensitive directories
-  ansible.builtin.file:
-    path: "{{ item }}"
+- name: Create/secure ACME storage
+  ansible.builtin.copy:
+    dest: "{{ traefik_root }}/acme/acme.json"
+    content: "{}\n"
     owner: "{{ traefik_user }}"
     group: "{{ traefik_group }}"
-    mode: "{{ traefik_sensitive_dir_mode }}"
-  loop:
-    - "{{ traefik_certs_dir }}"
-    - "{{ traefik_logs_dir }}"
-
-- name: Set proper permissions on logs directory for Traefik container
-  ansible.builtin.file:
-    path: "{{ traefik_logs_dir }}"
-    owner: root
-    group: root
-    mode: "0755"
-
-- name: Set proper permissions on certificates directory
-  ansible.builtin.file:
-    path: "{{ traefik_certs_dir }}"
-    owner: "{{ traefik_user }}"
-    group: "{{ traefik_group }}"
-    mode: "0750"
+    mode: "0600"
+    force: false
+  become: true
 
 - name: Verify directory setup
   ansible.builtin.debug:
-    msg: "Traefik directories created with proper permissions"
+    msg: "Traefik directories created with proper permissions following simplified structure"

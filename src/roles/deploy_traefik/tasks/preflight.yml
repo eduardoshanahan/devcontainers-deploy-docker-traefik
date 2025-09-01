@@ -2,14 +2,6 @@
 # Pre-flight checks for independent Traefik deployment
 # Based on devcontainers-deploy-docker security principles
 
-- name: Verify deployment environment
-  ansible.builtin.assert:
-    that:
-      - traefik_deployment_environment is defined
-      - traefik_deployment_environment in ['development', 'staging', 'production']
-    fail_msg: "traefik_deployment_environment must be defined and valid"
-    success_msg: "Traefik deployment environment verified: {{ traefik_deployment_environment }}"
-
 - name: Verify Docker is running
   ansible.builtin.command: docker info
   register: docker_info
@@ -50,3 +42,4 @@
       Let's Encrypt configuration is incomplete or invalid.
       Please set TRAEFIK_ACME_EMAIL to a valid email address.
     success_msg: "Let's Encrypt configuration validated"
+

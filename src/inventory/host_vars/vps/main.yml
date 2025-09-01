@@ -1,0 +1,40 @@
+---
+# =============================================================================
+# HOST-SPECIFIC VARIABLES - VPS Configuration
+# =============================================================================
+# These variables take precedence over group variables
+# =============================================================================
+
+# Feature Flags (can be overridden per host)
+traefik_dashboard_enabled: false
+traefik_monitoring_enabled: false
+traefik_rate_limiting_enabled: false
+traefik_backup_enabled: false
+
+# Docker Configuration
+docker_network_name: "traefik-network"
+docker_network_subnet: "172.20.0.0/16"
+
+# Security Configuration
+firewall_enabled: true
+security_updates_enabled: true
+
+# Monitoring Configuration
+monitoring_enabled: false
+monitoring_cpu_threshold: 80
+monitoring_memory_threshold: 85
+monitoring_disk_threshold: 90
+
+# Logging Configuration
+log_level: "INFO"
+log_rotation_days: 7
+
+# SSL/TLS Configuration
+ssl_cert_path: "{{ vault_ssl_cert_path | default('') }}"
+ssl_key_path: "{{ vault_ssl_key_path | default('') }}"
+
+# Backup Configuration
+backup_enabled: false
+backup_encryption_key: "{{ vault_backup_encryption_key | default('') }}"
+backup_s3_access_key: "{{ vault_backup_s3_access_key | default('') }}"
+backup_s3_secret_key: "{{ vault_backup_s3_secret_key | default('') }}"

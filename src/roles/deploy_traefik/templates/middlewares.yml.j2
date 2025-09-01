@@ -1,0 +1,9 @@
+# Traefik dynamic configuration for middlewares
+# Following team guidelines
+
+http:
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true

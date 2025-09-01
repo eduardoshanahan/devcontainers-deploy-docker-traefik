@@ -101,4 +101,22 @@ env/
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db 
+Thumbs.db
+
+# =============================================================================
+# SECRETS DIRECTORY PROTECTION
+# =============================================================================
+# Protect all files in secrets directory except documentation
+# =============================================================================
+
+# Secrets directory (protect all files)
+secrets/*
+!secrets/.gitignore
+!secrets/README.md
+!secrets/vault.example.yml
+!secrets/.env
+
+# Specific sensitive files
+secrets/vault.yml
+secrets/vault.decrypted.yml
+secrets/.vault_pass 

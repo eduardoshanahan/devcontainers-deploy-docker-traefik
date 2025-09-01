@@ -1,20 +1,16 @@
 ---
-# Independent Traefik deployment role
-# Based on devcontainers-deploy-docker standards but completely standalone
+# Traefik deployment role (Docker operations only)
+# System setup is handled by separate playbook
 
 - name: Verify all required variables are defined
   ansible.builtin.assert:
     that:
-      - traefik_deployment_environment is defined
       - traefik_container_name is defined
       - traefik_network_name is defined
       - traefik_network_subnet is defined
       - traefik_user is defined
       - traefik_group is defined
-      - traefik_config_dir is defined
-      - traefik_dynamic_config_dir is defined
-      - traefik_certs_dir is defined
-      - traefik_logs_dir is defined
+      - traefik_root is defined
       - traefik_web_port is defined
       - traefik_websecure_port is defined
       - traefik_dashboard_port is defined
@@ -33,10 +29,6 @@
 - name: Include system preparation
   ansible.builtin.include_tasks: prepare_system.yml
   tags: [prepare, system]
-
-- name: Include user and directory setup
-  ansible.builtin.include_tasks: setup_users_dirs.yml
-  tags: [setup, users, directories]
 
 - name: Include Traefik configuration
   ansible.builtin.include_tasks: configure_traefik.yml

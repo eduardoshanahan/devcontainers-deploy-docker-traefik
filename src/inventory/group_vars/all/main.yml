@@ -2,36 +2,35 @@
 # =============================================================================
 # GLOBAL VARIABLES - Single source of truth
 # =============================================================================
+# References vault variables for sensitive data
+# Single environment configuration - no production/staging/development
+# =============================================================================
 
 # Server Configuration
-vps_server_ip: "{{ lookup('env', 'VPS_SERVER_IP') }}"
+vps_server_ip: "{{ vault_vps_server_ip }}"
 
 # Initial Deployment User (has root/sudo access)
-initial_deployment_user: "{{ lookup('env', 'INITIAL_DEPLOYMENT_USER') }}"
-initial_deployment_ssh_key: "{{ lookup('env', 'INITIAL_DEPLOYMENT_SSH_KEY') }}"
+initial_deployment_user: "{{ vault_initial_deployment_user }}"
+initial_deployment_ssh_key: "{{ vault_initial_deployment_ssh_key }}"
 
 # Containers Deployment User (has Docker access)
-containers_deployment_user: "{{ lookup('env', 'CONTAINERS_DEPLOYMENT_USER') }}"
-containers_deployment_ssh_key: "{{ lookup('env', 'CONTAINERS_DEPLOYMENT_SSH_KEY') }}"
+containers_deployment_user: "{{ vault_containers_deployment_user }}"
+containers_deployment_ssh_key: "{{ vault_containers_deployment_ssh_key }}"
 
 # Current deployment user (will be set based on task type)
 deployment_user: "{{ containers_deployment_user }}"
 deployment_ssh_key: "{{ containers_deployment_ssh_key }}"
 
-# Environment Detection
-deployment_environment: "{{ lookup('env', 'TRAEFIK_ENVIRONMENT') | default('development') }}"
-traefik_deployment_environment: "{{ deployment_environment }}"
-
-# Docker Network Configuration (from existing project)
-docker_network_name: "prod-web-network"
+# Docker Network Configuration
+docker_network_name: "traefik-network"
 docker_network_subnet: "172.20.0.0/16"
 traefik_network_name: "{{ docker_network_name }}"
 traefik_network_subnet: "{{ docker_network_subnet }}"
 
-# Traefik Base Configuration
-traefik_version: "{{ traefik_version_override }}"
-traefik_image: "traefik:{{ traefik_version }}"
-traefik_container_name: "traefik-{{ deployment_environment }}"
+# Docker Configuration
+traefik_version: "{{ lookup('env', 'TRAEFIK_VERSION') | default('latest') }}"
+traefik_image: "traefik:latest"
+traefik_container_name: "traefik"
 traefik_restart_policy: "unless-stopped"
 traefik_docker_restart_policy: "{{ traefik_restart_policy }}"
 
@@ -45,37 +44,38 @@ traefik_container_port: "{{ traefik_web_port }}"
 traefik_container_web_port: 80
 traefik_container_dashboard_port: 8080
 
-# User Configuration
-traefik_user: "{{ deployment_user }}"
-traefik_group: "{{ deployment_user }}"
-traefik_user_groups: ["docker"]
-traefik_user_shell: "/bin/bash"
-traefik_user_create_home: true
+# User Configuration - Simplified approach
+traefik_user: "traefik"
+traefik_group: "traefik"
+traefik_user_groups: []
+traefik_user_shell: "/usr/sbin/nologin"
+traefik_user_create_home: false
 
-# Paths
-traefik_base_dir: "/opt/traefik-{{ deployment_environment }}"
-traefik_config_dir: "{{ traefik_base_dir }}/config"
-traefik_dynamic_dir: "{{ traefik_base_dir }}/dynamic"
-traefik_certs_dir: "{{ traefik_base_dir }}/certs"
-traefik_logs_dir: "{{ traefik_base_dir }}/logs"
+# User ID and Group ID (for Docker container)
+traefik_uid: "{{ lookup('env', 'TRAEFIK_UID') | default('1000') }}"
+traefik_gid: "{{ lookup('env', 'TRAEFIK_GID') | default('1000') }}"
 
-# Container Paths
-traefik_container_config_path: "/etc/traefik/traefik.yml"
-traefik_container_dynamic_path: "/etc/traefik/dynamic"
-traefik_container_certs_path: "/etc/traefik/certs"
-traefik_container_logs_path: "/var/log/traefik"
+# Simplified Paths - Following team guidelines
+traefik_root: "/opt/traefik"
+# No need for separate config_dir, dynamic_dir, etc. - everything goes under traefik_root
 
-# File Configuration
-traefik_config_file: "{{ traefik_config_dir }}/traefik.yml"
-traefik_dynamic_config_dir: "{{ traefik_dynamic_dir }}"
-traefik_dynamic_config_path: "{{ traefik_dynamic_dir }}"
+# Container Paths - Simplified mapping
+traefik_container_config_path: "/traefik.yml"
+traefik_container_dynamic_path: "/dynamic"
+traefik_container_certs_path: "/acme"
+traefik_container_logs_path: "/logs"
+
+# File Configuration - Simplified
+traefik_config_file: "{{ traefik_root }}/traefik.yml"
+traefik_dynamic_config_dir: "{{ traefik_root }}/dynamic"
+traefik_dynamic_config_file: "{{ traefik_root }}/dynamic/middlewares.yml"
 
 # Docker Socket
 traefik_docker_socket: "/var/run/docker.sock"
 
 # Logging Configuration
-traefik_log_path: "{{ traefik_logs_dir }}"
-traefik_log_level: "INFO"
+traefik_log_path: "{{ traefik_root }}/logs"
+traefik_log_level: "{{ lookup('env', 'TRAEFIK_LOG_LEVEL') | default('INFO') }}"
 traefik_log_rotation_days: 7
 traefik_log_rotation_mode: "0644"
 
@@ -85,13 +85,13 @@ traefik_logrotate_owner: "root"
 traefik_logrotate_group: "root"
 traefik_logrotate_mode: "0644"
 
-# Directory and File Permissions
-traefik_dir_mode: "0755"
-traefik_sensitive_dir_mode: "0750"
-traefik_config_file_mode: "0640"
+# Directory and File Permissions - Updated for docker_deployment access
+traefik_dir_mode: "0770"  # Group has write access
+traefik_sensitive_dir_mode: "0770"
+traefik_config_file_mode: "0660"  # Group has write access
 
 # Security Configuration
-traefik_admin_password: "{{ lookup('env', 'TRAEFIK_ADMIN_PASSWORD') }}"
+traefik_admin_password: "{{ vault_traefik_admin_password }}"
 traefik_hsts_seconds: 31536000
 traefik_rate_limit_burst: 100
 traefik_rate_limit_average: 50
@@ -109,10 +109,10 @@ traefik_prometheus_buckets:
   - 5.0
 
 # Feature Flags (with sensible defaults)
-traefik_backup_enabled: "{{ traefik_backup_enabled }}"
-traefik_monitoring_enabled: "{{ traefik_monitoring_enabled }}"
-traefik_dashboard_enabled: "{{ traefik_dashboard_enabled }}"
-traefik_rate_limiting_enabled: "{{ traefik_rate_limiting_enabled }}"
+traefik_backup_enabled: "{{ lookup('env', 'TRAEFIK_BACKUP_ENABLED') | default('false') | bool }}"
+traefik_monitoring_enabled: "{{ lookup('env', 'TRAEFIK_MONITORING_ENABLED') | default('false') | bool }}"
+traefik_dashboard_enabled: "{{ lookup('env', 'TRAEFIK_DASHBOARD_ENABLED') | default('false') | bool }}"
+traefik_rate_limiting_enabled: "{{ lookup('env', 'TRAEFIK_RATE_LIMITING_ENABLED') | default('false') | bool }}"
 
 # Conditional Port Configuration
 traefik_base_ports:
@@ -132,7 +132,10 @@ firewall_allowed_ports:
   - 443   # HTTPS
   - 8080  # Dashboard (when enabled)
 
-# Let's Encrypt Configuration
-traefik_acme_email: "{{ lookup('env', 'TRAEFIK_ACME_EMAIL') | default('admin@localhost') }}"
+# Let's Encrypt Configuration - Updated paths
+traefik_acme_email: "{{ vault_traefik_acme_email }}"
 traefik_acme_staging: "{{ lookup('env', 'TRAEFIK_ACME_STAGING') | default('false') | bool }}"
-traefik_acme_storage: "/etc/traefik/certs/acme.json"
+traefik_acme_storage: "{{ traefik_container_certs_path }}/acme.json"
+
+# Security Updates Configuration
+configure_security_updates_email: "{{ vault_configure_security_updates_email }}"

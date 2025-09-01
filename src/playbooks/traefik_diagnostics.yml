@@ -1,0 +1,293 @@
+---
+# =============================================================================
+# TRAEFIK DIAGNOSTICS PLAYBOOK
+# =============================================================================
+# This playbook diagnoses Traefik health and routing issues
+# Focuses on Traefik-only concerns, not application deployments
+# =============================================================================
+
+- name: Diagnose Traefik Health and Routing
+  hosts: docker_ops # Use docker_ops group instead of vps
+  gather_facts: true
+  become: false
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+
+  tasks:
+    - name: Display diagnostic configuration
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK DIAGNOSTICS
+          ==============================================================================
+          Traefik Container: {{ traefik_container_name }}
+          Network: {{ traefik_network_name }}
+          HTTP Port: {{ traefik_web_port }}
+          HTTPS Port: {{ traefik_websecure_port }}
+          Dashboard Port: {{ traefik_dashboard_port }}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK CONTAINER STATUS
+    # =============================================================================
+
+    - name: Check Traefik container status
+      community.docker.docker_container_info:
+        name: "{{ traefik_container_name }}"
+      register: traefik_status
+
+    - name: Display Traefik container status
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK CONTAINER STATUS
+          ==============================================================================
+          Container: {{ traefik_container_name }}
+          Status: {{ traefik_status.container.State.Status if traefik_status.container and traefik_status.container.State else 'NOT FOUND' }}
+          Running: {{ traefik_status.container.State.Running if traefik_status.container and traefik_status.container.State else 'N/A' }}
+          PID: {{ traefik_status.container.State.Pid if traefik_status.container and traefik_status.container.State else 'N/A' }}
+          Started: {{ traefik_status.container.State.StartedAt if traefik_status.container and traefik_status.container.State else 'N/A' }}
+          Ports: {{ traefik_status.container.NetworkSettings.Ports if traefik_status.container and traefik_status.container.NetworkSettings else 'N/A' }}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK NETWORK CONFIGURATION
+    # =============================================================================
+
+    - name: Check Traefik network configuration
+      community.docker.docker_network_info:
+        name: "{{ traefik_network_name }}"
+      register: network_info
+      ignore_errors: true
+
+    - name: Display network configuration
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK NETWORK CONFIGURATION
+          ==============================================================================
+          Network: {{ network_info.network.Name if network_info.network else 'NOT FOUND' }}
+          Driver: {{ network_info.network.Driver if network_info.network else 'N/A' }}
+          Subnet: >-
+            {{ network_info.network.IPAM.Config[0].Subnet
+            if network_info.network and network_info.network.IPAM and network_info.network.IPAM.Config
+            else 'N/A' }}
+          Containers: >-
+            {{ network_info.network.Containers.keys() | list
+            if network_info.network and network_info.network.Containers
+            else 'N/A' }}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK CONFIGURATION FILES
+    # =============================================================================
+
+    - name: Check Traefik configuration files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - "{{ traefik_config_file }}"
+        - "{{ traefik_dynamic_config_dir }}/middlewares.yml"
+        - "{{ traefik_root }}/acme/acme.json"
+      register: traefik_files
+
+    - name: Display Traefik configuration status
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK CONFIGURATION FILES
+          ==============================================================================
+          {% for file in traefik_files.results %}
+          File: {{ file.stat.path if file.stat.exists else 'MISSING' }}
+          Exists: {{ '✅' if file.stat.exists else '❌' }}
+          Size: {{ file.stat.size if file.stat.exists else 'N/A' }} bytes
+          {% endfor %}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK ROUTING AND SERVICES
+    # =============================================================================
+
+    - name: Get all running containers
+      ansible.builtin.shell: |
+        docker ps --format "table {% raw %}{{.Names}}{% endraw %}\t{% raw %}{{.Image}}{% endraw %}\t{% raw %}{{.Status}}{% endraw %}\t{% raw %}{{.Ports}}{% endraw %}"
+      register: running_containers
+      changed_when: false
+
+    - name: Display running containers
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          RUNNING CONTAINERS
+          ==============================================================================
+          {{ running_containers.stdout_lines if running_containers.stdout_lines else 'No containers running' }}
+          ==============================================================================
+
+    - name: Check for containers with Traefik labels
+      ansible.builtin.shell: |
+        docker ps --format "{% raw %}{{.Names}}{% endraw %}" | while read container; do
+          if docker inspect "$container" --format='{% raw %}{{.Config.Labels}}{% endraw %}' | grep -q traefik; then
+            echo "Container: $container"
+            docker inspect "$container" --format='{% raw %}{{.Config.Labels}}{% endraw %}' | grep traefik
+            echo "---"
+          fi
+        done
+      register: traefik_labeled_containers
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display Traefik routing configuration
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK ROUTING CONFIGURATION
+          ==============================================================================
+          {% if traefik_labeled_containers.stdout_lines %}
+          Found containers with Traefik integration:
+          {{ traefik_labeled_containers.stdout_lines | join('\n') }}
+          {% else %}
+          No containers found with Traefik integration
+          {% endif %}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK CONNECTIVITY TESTS
+    # =============================================================================
+
+    - name: Test Traefik HTTP access
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ traefik_web_port }}"
+        method: GET
+        timeout: 10
+      register: traefik_http_test
+      ignore_errors: true
+
+    - name: Test Traefik HTTPS access
+      ansible.builtin.uri:
+        url: "https://127.0.0.1:{{ traefik_websecure_port }}"
+        method: GET
+        timeout: 10
+        validate_certs: false
+      register: traefik_https_test
+      ignore_errors: true
+
+    - name: Test Traefik dashboard (if enabled)
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ traefik_dashboard_port }}"
+        method: GET
+        timeout: 10
+      register: traefik_dashboard_test
+      ignore_errors: true
+      when: traefik_dashboard_enabled | bool
+
+    - name: Display connectivity test results
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK CONNECTIVITY TEST RESULTS
+          ==============================================================================
+          HTTP Access (Port {{ traefik_web_port }}):
+            - Status: {{ traefik_http_test.status if traefik_http_test.status is defined else 'FAILED' }}
+            - Expected: 301/302 redirect to HTTPS
+
+          HTTPS Access (Port {{ traefik_websecure_port }}):
+            - Status: {{ traefik_https_test.status if traefik_https_test.status is defined else 'FAILED' }}
+            - Expected: 200, 404, or 502/503
+
+          {% if traefik_dashboard_enabled | bool %}
+          Dashboard Access (Port {{ traefik_dashboard_port }}):
+            - Status: {{ traefik_dashboard_test.status if traefik_dashboard_test.status is defined else 'FAILED' }}
+            - Expected: 200 or 401/403
+          {% endif %}
+          ==============================================================================
+
+    # =============================================================================
+    # TRAEFIK LOGS ANALYSIS
+    # =============================================================================
+
+    - name: Get Traefik logs (last 30 lines)
+      ansible.builtin.shell: |
+        if docker ps | grep -q "{{ traefik_container_name }}"; then
+          docker logs {{ traefik_container_name }} --tail=30
+        else
+          echo "Traefik container not running"
+        fi
+      register: traefik_logs
+      ignore_errors: true
+      changed_when: false
+
+    - name: Display Traefik logs
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK LOGS (Last 30 lines)
+          ==============================================================================
+          {{ traefik_logs.stdout_lines if traefik_logs.stdout_lines else 'No logs available' }}
+          ==============================================================================
+
+    # =============================================================================
+    # DIAGNOSIS SUMMARY
+    # =============================================================================
+
+    - name: Generate Traefik diagnosis summary
+      ansible.builtin.debug:
+        msg: |
+          ==============================================================================
+          TRAEFIK DIAGNOSIS SUMMARY
+          ==============================================================================
+          {% if traefik_status.container and traefik_status.container.State and traefik_status.container.State.Running %}
+          ✅ Traefik Container: RUNNING
+          {% else %}
+          ❌ Traefik Container: NOT RUNNING or NOT FOUND
+          {% endif %}
+
+          {% if network_info.network %}
+          ✅ Traefik Network: CONFIGURED
+          {% else %}
+          ❌ Traefik Network: MISSING
+          {% endif %}
+
+          {% if traefik_labeled_containers.stdout_lines %}
+          ✅ Traefik Integration: Found containers with Traefik labels
+          {% else %}
+          ⚠️  Traefik Integration: No containers found with Traefik labels
+          {% endif %}
+
+          {% if traefik_http_test.status is defined and traefik_http_test.status in [301, 302] %}
+          ✅ HTTP Redirect: WORKING (redirects to HTTPS)
+          {% elif traefik_http_test.status is defined %}
+          ⚠️  HTTP Redirect: Status {{ traefik_http_test.status }}
+          {% else %}
+          ❌ HTTP Redirect: FAILED
+          {% endif %}
+
+          {% if traefik_https_test.status is defined %}
+          ✅ HTTPS Access: RESPONDING (HTTP {{ traefik_https_test.status }})
+          {% else %}
+          ❌ HTTPS Access: UNREACHABLE
+          {% endif %}
+
+          ==============================================================================
+          RECOMMENDED ACTIONS:
+          ==============================================================================
+          {% if not traefik_status.container or not traefik_status.container.State or not traefik_status.container.State.Running %}
+          1. Start the Traefik container
+          {% endif %}
+
+          {% if not network_info.network %}
+          2. Create the Traefik network
+          {% endif %}
+
+          {% if not traefik_labeled_containers.stdout_lines %}
+          3. Check if applications are properly labeled for Traefik
+          4. Verify container network connectivity
+          {% endif %}
+
+          {% if not traefik_http_test.status is defined or traefik_http_test.status not in [301, 302] %}
+          5. Check Traefik HTTP configuration and routing
+          {% endif %}
+
+          {% if not traefik_https_test.status is defined %}
+          6. Check Traefik HTTPS configuration and certificates
+          {% endif %}
+          ==============================================================================

@@ -1,0 +1,79 @@
+---
+# System Setup for Traefik (requires sudo)
+# Run this first with ubuntu user
+
+- name: Setup Traefik System (requires sudo)
+  hosts: all
+  gather_facts: true
+  become: true
+
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+    - "../../secrets/vault.yml"
+
+  vars:
+    ansible_user: "{{ vault_initial_deployment_user }}"
+    ansible_ssh_private_key_file: "{{ vault_initial_deployment_ssh_key }}"
+
+  tasks:
+    - name: Ensure traefik system group
+      ansible.builtin.group:
+        name: "{{ traefik_group }}"
+        system: true
+
+    - name: Ensure traefik system user
+      ansible.builtin.user:
+        name: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        system: true
+        shell: "{{ traefik_user_shell }}"
+        create_home: "{{ traefik_user_create_home }}"
+        groups: "{{ traefik_user_groups | default([]) }}"
+
+    - name: Create Traefik root directory
+      ansible.builtin.file:
+        path: "{{ traefik_root }}"
+        state: directory
+        owner: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        mode: "0770" # Changed from 0750 to 0770
+
+    - name: Create Traefik subdirectories
+      ansible.builtin.file:
+        path: "{{ traefik_root }}/{{ item }}"
+        state: directory
+        owner: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        mode: "0770" # Changed from 0750 to 0770
+      loop:
+        - ""
+        - dynamic
+        - acme
+        - logs
+
+    - name: Create/secure ACME storage
+      ansible.builtin.copy:
+        dest: "{{ traefik_root }}/acme/acme.json"
+        content: "{}\n"
+        owner: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        mode: "0600"
+        force: false
+
+    - name: Ensure docker_deployment user has access to Traefik directories
+      ansible.builtin.user:
+        name: "{{ containers_deployment_user }}"
+        groups: "{{ traefik_group }}"
+        append: true
+
+    - name: Create Traefik log rotation configuration
+      ansible.builtin.template:
+        src: "../roles/deploy_traefik/templates/logrotate.conf.j2"
+        dest: "{{ traefik_logrotate_config_path }}"
+        owner: "{{ traefik_logrotate_owner }}"
+        group: "{{ traefik_logrotate_group }}"
+        mode: "{{ traefik_logrotate_mode }}"
+
+    - name: Verify system setup
+      ansible.builtin.debug:
+        msg: "Traefik system setup completed. docker_deployment user now has access to {{ traefik_root }}"

@@ -3,6 +3,24 @@
 ## Starting a new session
 
 ```text
+Hello! I'm resuming work on my Traefik security enhancement project. Here's the current status:
+Current State:
+Traefik is successfully deployed and running on my VPS
+SSL/Let's Encrypt is working but not correctly
+I now have a test domain/page eduardoshanahan.com deployed behind Traefik
+What We're Doing:
+Fixing any problems until eduardoshanahan.com works correctly
+Documentation Available:
+Security enhancements roadmap in documentation/research-and-development/implementation/security-enhancements.md
+Implementation plan in documentation/research-and-development/implementation/implementation-plan.md
+Please remember that we have rules to apply contained in .rules/cursor
+Please remember that you have the two reference projects:
+1. devcotnainers-deploy-docker: is the project used to keep Ubuntu and Docker up to date in the VPS
+2. devcontainer-deploy-docker-static-page: is the project used to deploy the static page at eduardoshanahan.com
+You can access both references to understand how things we done on each, but you cannot edit or modify neither of them. If you need changes in those two project, you have to indicate what you want changed and I will communicate with the other teams.
+```
+
+```text
 We are going to be working together around this project. when you edit or create new files, please remember to apply the rules at .cursor/rules before showing your suggestions. Please analyse the existing project, in full, to know what we are trying to do. You don't need to explain me what you learnt, just report back when you are done understanding.
 ```
 

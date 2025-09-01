@@ -31,7 +31,7 @@ This document defines the strategy for creating a completely automated, file-bas
 
 ### **Complete Project Structure**
 
-```
+```text
 project-root/
 ├── ansible/
 │   ├── inventory/

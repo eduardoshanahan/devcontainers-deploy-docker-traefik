@@ -1,7 +1,7 @@
 # Log rotation configuration for independent Traefik deployment
 # Integrated with system logrotate
 
-{{ traefik_logs_dir }}/traefik.log {
+{{ traefik_log_path }}/traefik.log {
     daily
     missingok
     rotate {{ traefik_log_rotation_days }}
@@ -15,7 +15,7 @@
     endscript
 }
 
-{{ traefik_logs_dir }}/access.log {
+{{ traefik_log_path }}/access.log {
     daily
     missingok
     rotate {{ traefik_log_rotation_days }}
