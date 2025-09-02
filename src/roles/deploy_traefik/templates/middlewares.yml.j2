@@ -7,3 +7,50 @@ http:
       redirectScheme:
         scheme: https
         permanent: true
+
+{% if traefik_waf_enabled %}
+    # WAF Middleware - ModSecurity Integration
+    waf-modsecurity:
+      plugin:
+        modsecurity:
+          address: "http://{{ traefik_waf_container_name }}:{{ traefik_waf_port }}"
+          timeout: "10s"
+          maxBodySize: "10MB"
+          failOpen: false
+          logLevel: "{{ traefik_waf_log_level }}"
+
+    # Security Headers Middleware
+    security-headers:
+      headers:
+        frameDeny: true
+        sslRedirect: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: {{ traefik_hsts_seconds }}
+        customFrameOptionsValue: "SAMEORIGIN"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' https:; connect-src 'self'; frame-ancestors 'self';"
+
+{% if traefik_rate_limiting_enabled %}
+    # Rate Limiting Middleware
+    rate-limit:
+      rateLimit:
+        burst: {{ traefik_rate_limit_burst }}
+        average: {{ traefik_rate_limit_average }}
+        period: "1s"
+{% endif %}
+
+    # Combined Security Middleware
+    security-complete:
+      chain:
+        middlewares:
+          - waf-modsecurity
+          - security-headers
+{% if traefik_rate_limiting_enabled %}
+          - rate-limit
+{% endif %}
+{% endif %}

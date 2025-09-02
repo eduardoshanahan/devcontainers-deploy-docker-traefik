@@ -1,0 +1,44 @@
+# ModSecurity Configuration for OWASP CRS
+# Following team guidelines for security configuration
+
+SecRuleEngine On
+SecRequestBodyAccess On
+SecResponseBodyAccess On
+SecResponseBodyMimeType text/plain text/html text/xml
+
+# OWASP CRS Configuration
+SecDefaultAction "phase:1,log,auditlog,pass"
+SecDefaultAction "phase:2,log,auditlog,pass"
+
+# CRS Paranoia Level
+SecAction "id:900000,phase:1,nolog,pass,t:setvar:tx.paranoia_level={{ traefik_waf_paranoia_level }}"
+
+# CRS Anomaly Score Threshold
+SecAction "id:900001,phase:1,nolog,pass,t:setvar:tx.anomaly_score_threshold={{ traefik_waf_anomaly_score_threshold }}"
+
+# CRS Blocking Mode
+SecAction "id:900002,phase:1,nolog,pass,t:setvar:tx.blocking_paranoia_level={{ traefik_waf_paranoia_level }}"
+
+# Include OWASP CRS Rules
+Include /etc/modsecurity/crs/crs-setup.conf
+Include /etc/modsecurity/crs/rules/*.conf
+
+# Custom Rules for Traefik Integration
+SecRule REQUEST_HEADERS:User-Agent "@contains traefik" \
+    "id:1001,phase:1,pass,nolog,msg:'Traefik health check'"
+
+# Logging Configuration
+SecAuditLogType Serial
+SecAuditLog {{ traefik_waf_container_logs_path }}/modsec_audit.log
+SecAuditLogStorageDir {{ traefik_waf_container_logs_path }}/audit/
+
+# Error Logging
+SecDebugLog {{ traefik_waf_container_logs_path }}/modsec_debug.log
+SecDebugLogLevel {{ traefik_waf_log_level | upper }}
+
+# Performance Tuning
+SecRequestBodyLimit 13107200
+SecRequestBodyNoFilesLimit 131072
+SecRequestBodyLimitAction Reject
+SecResponseBodyLimit 5242880
+SecResponseBodyLimitAction ProcessPartial

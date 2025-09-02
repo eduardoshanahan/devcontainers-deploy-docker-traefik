@@ -1,0 +1,115 @@
+---
+# Test WAF Security Features
+# Following team guidelines for comprehensive testing
+
+- name: Test WAF Security Features
+  hosts: all
+  gather_facts: true
+
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+    - "../../secrets/vault.yml"
+
+  vars:
+    ansible_user: "{{ vault_initial_deployment_user }}"
+    ansible_ssh_private_key_file: "{{ vault_initial_deployment_ssh_key }}"
+
+  tasks:
+    - name: Test SQL Injection Attack
+      ansible.builtin.uri:
+        url: "http://{{ vps_server_ip }}/?id=1%27%20OR%20%271%27%3D%271"
+        method: GET
+        status_code: [200, 403, 406, 404]
+        timeout: 10
+        validate_certs: false
+      register: sql_injection_test
+
+    - name: Test XSS Attack
+      ansible.builtin.uri:
+        url: "http://{{ vps_server_ip }}/?search=%3Cscript%3Ealert%28%27xss%27%29%3C%2Fscript%3E"
+        method: GET
+        status_code: [200, 403, 406, 404]
+        timeout: 10
+        validate_certs: false
+      register: xss_test
+
+    - name: Test Path Traversal Attack
+      ansible.builtin.uri:
+        url: "http://{{ vps_server_ip }}/..%2F..%2F..%2Fetc%2Fpasswd"
+        method: GET
+        status_code: [200, 403, 406, 404]
+        timeout: 10
+        validate_certs: false
+      register: path_traversal_test
+
+    - name: Test Normal Request
+      ansible.builtin.uri:
+        url: "http://{{ vps_server_ip }}/"
+        method: GET
+        status_code: [200, 403, 406, 404]
+        timeout: 10
+        validate_certs: false
+      register: normal_request_test
+
+    - name: Test Domain with WAF
+      ansible.builtin.uri:
+        url: "https://eduardoshanahan.com/"
+        method: GET
+        status_code: [200, 403, 406, 404]
+        timeout: 10
+        validate_certs: false
+      register: domain_waf_test
+
+    - name: Calculate WAF effectiveness metrics
+      ansible.builtin.set_fact:
+        sql_blocked: "{{ 1 if (sql_injection_test.status == 403 or sql_injection_test.status == 406) else 0 }}"
+        xss_blocked: "{{ 1 if (xss_test.status == 403 or xss_test.status == 406) else 0 }}"
+        path_blocked: "{{ 1 if (path_traversal_test.status == 403 or path_traversal_test.status == 406) else 0 }}"
+        normal_allowed: "{{ 1 if (normal_request_test.status == 200 or normal_request_test.status == 404) else 0 }}"
+        domain_allowed: "{{ 1 if (domain_waf_test.status == 200 or domain_waf_test.status == 404) else 0 }}"
+
+    - name: Calculate final metrics
+      ansible.builtin.set_fact:
+        attacks_blocked: "{{ sql_blocked + xss_blocked + path_blocked }}"
+        legitimate_traffic: "{{ normal_allowed + domain_allowed }}"
+        overall_status: "{{ 'PASS' if (sql_blocked == 1 and xss_blocked == 1 and path_blocked == 1 and normal_allowed == 1 and domain_allowed == 1) else 'FAIL' }}"
+
+    - name: Display WAF test results
+      ansible.builtin.debug:
+        msg: |
+          =============================================================================
+          WAF SECURITY TEST RESULTS
+          =============================================================================
+          Timestamp: {{ ansible_date_time.iso8601 | default('N/A') }}
+
+          SQL Injection Test:
+          - Status: {{ sql_injection_test.status | default('Failed') }}
+          - Result: {{ 'BLOCKED' if (sql_injection_test.status == 403 or sql_injection_test.status == 406) else 'ALLOWED' }}
+          - Expected: BLOCKED
+
+          XSS Attack Test:
+          - Status: {{ xss_test.status | default('Failed') }}
+          - Result: {{ 'BLOCKED' if (xss_test.status == 403 or xss_test.status == 406) else 'ALLOWED' }}
+          - Expected: BLOCKED
+
+          Path Traversal Test:
+          - Status: {{ path_traversal_test.status | default('Failed') }}
+          - Result: {{ 'BLOCKED' if (path_traversal_test.status == 403 or path_traversal_test.status == 406) else 'ALLOWED' }}
+          - Expected: BLOCKED
+
+          Normal Request Test:
+          - Status: {{ normal_request_test.status | default('Failed') }}
+          - Result: {{ 'ALLOWED' if (normal_request_test.status == 200 or normal_request_test.status == 404) else 'BLOCKED' }}
+          - Expected: ALLOWED
+
+          Domain WAF Test:
+          - Status: {{ domain_waf_test.status | default('Failed') }}
+          - Result: {{ 'ALLOWED' if (domain_waf_test.status == 200 or domain_waf_test.status == 404) else 'BLOCKED' }}
+          - Expected: ALLOWED
+
+          =============================================================================
+          WAF EFFECTIVENESS SUMMARY:
+          - Attacks Blocked: {{ attacks_blocked }}/3
+          - Legitimate Traffic: {{ legitimate_traffic }}/2
+          - Overall Status: {{ overall_status }}
+          =============================================================================

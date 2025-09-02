@@ -30,6 +30,11 @@
   ansible.builtin.include_tasks: prepare_system.yml
   tags: [prepare, system]
 
+- name: Include WAF deployment
+  ansible.builtin.include_tasks: deploy_waf.yml
+  tags: [waf, deploy]
+  when: traefik_waf_enabled
+
 - name: Include Traefik configuration
   ansible.builtin.include_tasks: configure_traefik.yml
   tags: [configure, traefik]

@@ -101,6 +101,29 @@ traefik_tls_cipher_suites:
   - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
   - "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305"
 
+# WAF Configuration - ModSecurity Integration
+traefik_waf_enabled: "{{ lookup('env', 'TRAEFIK_WAF_ENABLED') | default('true') | bool }}"
+traefik_waf_image: "owasp/modsecurity-crs:apache"
+traefik_waf_container_name: "modsecurity-waf"
+traefik_waf_restart_policy: "unless-stopped"
+traefik_waf_port: 8081  # Changed from 8080 to 8081 to avoid conflict
+traefik_waf_log_level: "{{ lookup('env', 'TRAEFIK_WAF_LOG_LEVEL') | default('warn') }}"
+traefik_waf_paranoia_level: "{{ lookup('env', 'TRAEFIK_WAF_PARANOIA_LEVEL') | default('1') }}"
+traefik_waf_anomaly_score_threshold: "{{ lookup('env', 'TRAEFIK_WAF_ANOMALY_SCORE_THRESHOLD') | default('5') }}"
+
+# WAF Paths
+traefik_waf_root: "/opt/modsecurity"
+traefik_waf_config_dir: "{{ traefik_waf_root }}/config"
+traefik_waf_rules_dir: "{{ traefik_waf_root }}/rules"
+traefik_waf_logs_dir: "{{ traefik_waf_root }}/logs"
+traefik_waf_crs_dir: "{{ traefik_waf_root }}/crs"
+
+# WAF Container Paths
+traefik_waf_container_config_path: "/etc/modsecurity"
+traefik_waf_container_rules_path: "/etc/modsecurity/rules"
+traefik_waf_container_logs_path: "/var/log/modsecurity"
+traefik_waf_container_crs_path: "/etc/modsecurity/crs"
+
 # Monitoring Configuration
 traefik_prometheus_buckets:
   - 0.1

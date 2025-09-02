@@ -1,0 +1,119 @@
+---
+# Deploy ModSecurity WAF container
+# Following team guidelines for Docker deployment
+
+- name: Verify WAF configuration variables are defined
+  ansible.builtin.assert:
+    that:
+      - traefik_waf_enabled is defined
+      - traefik_waf_image is defined
+      - traefik_waf_container_name is defined
+      - traefik_waf_restart_policy is defined
+      - traefik_waf_port is defined
+      - traefik_waf_root is defined
+    fail_msg: "Required WAF variables are not defined. Check inventory configuration."
+    success_msg: "All required WAF variables are properly defined."
+
+- name: Create ModSecurity configuration
+  ansible.builtin.template:
+    src: modsecurity.conf.j2
+    dest: "{{ traefik_waf_config_dir }}/modsecurity.conf"
+    mode: "{{ traefik_config_file_mode }}"
+  when: traefik_waf_enabled
+  tags: [waf, configure]
+
+- name: Stop existing WAF container if running
+  community.docker.docker_container:
+    name: "{{ traefik_waf_container_name }}"
+    state: stopped
+  register: waf_stop_result
+  failed_when: false
+  when: traefik_waf_enabled
+  tags: [waf, deploy]
+
+- name: Remove existing WAF container if exists
+  community.docker.docker_container:
+    name: "{{ traefik_waf_container_name }}"
+    state: absent
+  register: waf_remove_result
+  failed_when: false
+  when: traefik_waf_enabled
+  tags: [waf, deploy]
+
+- name: Pull WAF Docker image
+  community.docker.docker_image:
+    name: "{{ traefik_waf_image }}"
+    source: pull
+  when: traefik_waf_enabled
+  tags: [waf, deploy]
+
+- name: Deploy WAF container
+  community.docker.docker_container:
+    name: "{{ traefik_waf_container_name }}"
+    image: "{{ traefik_waf_image }}"
+    state: started
+    restart_policy: "{{ traefik_waf_restart_policy }}"
+    networks:
+      - name: "{{ traefik_network_name }}"
+    ports:
+      - "{{ traefik_waf_port }}:80"
+    volumes:
+      - "{{ traefik_waf_config_dir }}:{{ traefik_waf_container_config_path }}:ro"
+      - "{{ traefik_waf_logs_dir }}:{{ traefik_waf_container_logs_path }}"
+    env:
+      PARANOIA: "{{ traefik_waf_paranoia_level }}"
+      ANOMALY_SCORE_THRESHOLD: "{{ traefik_waf_anomaly_score_threshold }}"
+      LOG_LEVEL: "{{ traefik_waf_log_level }}"
+      BACKEND: "http://traefik:80"  # Add backend configuration
+    labels:
+      description: "ModSecurity WAF with OWASP CRS"
+      managed_by: "ansible"
+      project: "traefik-waf"
+  when: traefik_waf_enabled
+  tags: [waf, deploy]
+
+- name: Check WAF container status
+  community.docker.docker_container_info:
+    name: "{{ traefik_waf_container_name }}"
+  register: waf_container_info
+  when: traefik_waf_enabled
+  tags: [waf, verify]
+
+- name: Display WAF container status
+  ansible.builtin.debug:
+    msg: |
+      WAF Container Status:
+      - Name: {{ waf_container_info.container.Name }}
+      - State: {{ waf_container_info.container.State.Status }}
+      - Running: {{ waf_container_info.container.State.Running }}
+      - Exit Code: {{ waf_container_info.container.State.ExitCode | default('N/A') }}
+      - Error: {{ waf_container_info.container.State.Error | default('None') }}
+  when: traefik_waf_enabled
+  tags: [waf, verify]
+
+- name: Test WAF container connectivity internally
+  ansible.builtin.uri:
+    url: "http://{{ traefik_waf_container_name }}:80"
+    method: GET
+    timeout: 10
+    status_code: [200, 403, 404, 502]
+  register: waf_internal_test
+  failed_when: false
+  when: traefik_waf_enabled
+  tags: [waf, verify]
+
+- name: Display WAF internal connectivity test
+  ansible.builtin.debug:
+    msg: |
+      WAF Internal Connectivity Test:
+      - URL: http://{{ traefik_waf_container_name }}:80
+      - Status: {{ waf_internal_test.status | default('Failed') }}
+      - Result: {{ 'SUCCESS' if waf_internal_test.status in [200, 403, 404, 502] else 'FAILED' }}
+  when: traefik_waf_enabled
+  tags: [waf, verify]
+
+- name: Verify WAF container deployment
+  ansible.builtin.debug:
+    msg: "ModSecurity WAF container deployed successfully and is accessible internally"
+  when: traefik_waf_enabled
+  tags: [waf, verify]

@@ -74,6 +74,30 @@
         group: "{{ traefik_logrotate_group }}"
         mode: "{{ traefik_logrotate_mode }}"
 
+    # WAF System Setup (following the same pattern)
+    - name: Create WAF root directory
+      ansible.builtin.file:
+        path: "{{ traefik_waf_root }}"
+        state: directory
+        owner: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        mode: "0770"
+      when: traefik_waf_enabled
+
+    - name: Create WAF subdirectories
+      ansible.builtin.file:
+        path: "{{ traefik_waf_root }}/{{ item }}"
+        state: directory
+        owner: "{{ traefik_user }}"
+        group: "{{ traefik_group }}"
+        mode: "0770"
+      loop:
+        - config
+        - rules
+        - logs
+        - crs
+      when: traefik_waf_enabled
+
     - name: Verify system setup
       ansible.builtin.debug:
-        msg: "Traefik system setup completed. docker_deployment user now has access to {{ traefik_root }}"
+        msg: "Traefik and WAF system setup completed. docker_deployment user now has access to {{ traefik_root }} and {{ traefik_waf_root }}"
