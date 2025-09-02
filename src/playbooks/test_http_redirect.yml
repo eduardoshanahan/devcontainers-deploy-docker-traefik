@@ -1,0 +1,89 @@
+---
+# =============================================================================
+# HTTP TO HTTPS REDIRECT TEST PLAYBOOK
+# =============================================================================
+# This playbook tests the HTTP to HTTPS redirect functionality
+# =============================================================================
+
+- name: Test HTTP to HTTPS Redirect
+  hosts: docker_ops
+  gather_facts: true
+  become: false
+
+  vars_files:
+    - "../inventory/group_vars/all/main.yml"
+    - "../../secrets/vault.yml"
+
+  tasks:
+    - name: Test HTTP redirect to HTTPS
+      ansible.builtin.uri:
+        url: "http://{{ vault_vps_server_ip }}"
+        method: GET
+        timeout: 10
+        follow_redirects: none
+        status_code: [301, 302, 200]
+      register: http_redirect_test
+      failed_when: false
+
+    - name: Test HTTPS direct access
+      ansible.builtin.uri:
+        url: "https://{{ vault_vps_server_ip }}"
+        method: GET
+        timeout: 10
+        validate_certs: false
+        status_code: [200, 404]
+      register: https_direct_test
+      failed_when: false
+
+    - name: Test domain HTTP redirect
+      ansible.builtin.uri:
+        url: "http://eduardoshanahan.com"
+        method: GET
+        timeout: 10
+        follow_redirects: none
+        status_code: [301, 302, 200]
+      register: domain_http_test
+      failed_when: false
+
+    - name: Test domain HTTPS access
+      ansible.builtin.uri:
+        url: "https://eduardoshanahan.com"
+        method: GET
+        timeout: 10
+        validate_certs: false
+        status_code: [200, 404]
+      register: domain_https_test
+      failed_when: false
+
+    - name: Display redirect test results
+      ansible.builtin.debug:
+        msg: |
+          =============================================================================
+          HTTP TO HTTPS REDIRECT TEST RESULTS
+          =============================================================================
+          Timestamp: {{ ansible_date_time.iso8601 | default('N/A') }}
+
+          HTTP Redirect Test (IP):
+          - Status: {{ http_redirect_test.status | default('Failed') }}
+          - Location: {{ http_redirect_test.redirect | default('No redirect') }}
+          - Result: {{ 'PASS' if http_redirect_test.status in [301, 302] else 'FAIL' }}
+
+          HTTPS Direct Test (IP):
+          - Status: {{ https_direct_test.status | default('Failed') }}
+          - Result: {{ 'PASS' if https_direct_test.status in [200, 404] else 'FAIL' }}
+
+          Domain HTTP Redirect Test:
+          - Status: {{ domain_http_test.status | default('Failed') }}
+          - Location: {{ domain_http_test.redirect | default('No redirect') }}
+          - Result: {{ 'PASS' if domain_http_test.status in [301, 302] else 'FAIL' }}
+
+          Domain HTTPS Test:
+          - Status: {{ domain_https_test.status | default('Failed') }}
+          - Result: {{ 'PASS' if domain_https_test.status in [200, 404] else 'FAIL' }}
+
+          =============================================================================
+          EXPECTED RESULTS:
+          - HTTP requests should return 301/302 redirect to HTTPS
+          - HTTPS requests should return 200 (success) or 404 (no content)
+          - All tests should show PASS for proper redirect functionality
+          =============================================================================

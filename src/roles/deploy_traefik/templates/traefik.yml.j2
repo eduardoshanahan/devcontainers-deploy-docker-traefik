@@ -4,6 +4,12 @@
 entryPoints:
   web:
     address: ":{{ traefik_web_port }}"
+    http:
+      redirections:
+        entrypoint:
+          to: websecure
+          scheme: https
+          permanent: true
   websecure:
     address: ":{{ traefik_websecure_port }}"
 
